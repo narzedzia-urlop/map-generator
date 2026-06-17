@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generator Mapek – Prezentacje</title>
+  <meta name="description" content="Narzędzie do tworzenia mapek prezentacyjnych z znacznikami i podpisami. Eksport PNG bez tła." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3349;
+      --accent: #4ade80;
+      --accent2: #22c55e;
+      --accent-glow: rgba(74,222,128,0.25);
+      --text: #f0f4ff;
+      --text-muted: #8892b0;
+      --danger: #f87171;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; }
+
+    /* HEADER */
+    header { padding:12px 22px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; box-shadow:0 2px 16px rgba(0,0,0,0.3); }
+    .logo-icon { width:32px; height:32px; background:linear-gradient(135deg,var(--accent),#16a34a); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    header h1 { font-size:16px; font-weight:700; letter-spacing:-0.3px; }
+    header p  { font-size:11px; color:var(--text-muted); }
+
+    .app-layout { flex:1; display:flex; overflow:hidden; }
+
+    /* SIDEBAR */
+    .sidebar { width:272px; min-width:272px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; padding:13px 12px; gap:0; }
+    .sidebar-section { margin-bottom:16px; }
+    .sidebar-divider { height:1px; background:var(--border); margin:0 0 16px; }
+    .sidebar-label { font-size:10px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; display:block; }
+
+    /* TABS */
+    .sidebar-tabs { display:flex; gap:3px; padding:3px; background:var(--surface2); border-radius:9px; margin-bottom:13px; }
+    .tab-btn { flex:1; background:transparent; border:none; padding:6px 0; font-size:11px; font-weight:600; color:var(--text-muted); border-radius:6px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:5px; }
+    .tab-btn:hover { color:var(--text); }
+    .tab-btn.active { color:var(--accent); background:var(--surface); box-shadow:0 2px 5px rgba(0,0,0,0.25); }
+    .tab-content { display:none; }
+    .tab-content.active { display:block; animation:fadeIn 0.18s; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(2px)} to{opacity:1;transform:translateY(0)} }
+
+    /* MAP CARDS */
+    .map-grid { display:flex; flex-direction:column; gap:6px; }
+    .map-card { background:var(--surface2); border:2px solid var(--border); border-radius:var(--radius); padding:9px 11px; cursor:pointer; display:flex; align-items:center; gap:10px; transition:all 0.2s ease; }
+    .map-card:hover { border-color:var(--accent); background:rgba(74,222,128,0.05); }
+    .map-card.active { border-color:var(--accent); background:rgba(74,222,128,0.08); box-shadow:0 0 0 3px var(--accent-glow); }
+    .map-thumb { width:36px; height:36px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4)) brightness(0) saturate(100%) invert(53%) sepia(49%) saturate(1630%) hue-rotate(107deg) brightness(96%) contrast(89%); }
+    .map-card-info { flex:1; min-width:0; }
+    .map-card-name { font-size:13px; font-weight:600; }
+    .map-card-sub  { font-size:10px; color:var(--text-muted); margin-top:1px; }
+    .active-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 6px var(--accent); flex-shrink:0; display:none; }
+    .map-card.active .active-dot { display:block; }
+
+    /* BUTTONS */
+    .btn { border:none; border-radius:8px; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; padding:9px 14px; transition:all 0.2s ease; display:flex; align-items:center; justify-content:center; gap:7px; }
+    .btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0f1117; box-shadow:0 4px 12px rgba(74,222,128,0.3); }
+    .btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(74,222,128,0.4); }
+    .btn-danger { background:rgba(248,113,113,0.12); color:var(--danger); border:1.5px solid rgba(248,113,113,0.3); }
+    .btn-danger:hover { background:rgba(248,113,113,0.2); }
+    .btn-outline { background:var(--surface2); color:var(--text); border:1.5px solid var(--border); }
+    .btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+    .btn-cancel { background:rgba(248,113,113,0.12); color:var(--danger); border:1.5px solid rgba(248,113,113,0.3); width:100%; margin-top:4px; }
+
+    /* INPUTS */
+    .input-row { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; position:relative; }
+    .input-label { font-size:11px; color:var(--text-muted); font-weight:500; }
+    .text-input { background:var(--surface2); border:1.5px solid var(--border); border-radius:8px; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; padding:8px 11px; outline:none; transition:border-color 0.2s; width:100%; }
+    .text-input:focus { border-color:var(--accent); }
+    .text-input::placeholder { color:var(--text-muted); }
+
+    /* AUTOCOMPLETE */
+    .autocomplete-list { position:absolute; top:100%; left:0; right:0; z-index:50; background:var(--surface); border:1.5px solid var(--accent); border-radius:8px; max-height:200px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,0.4); margin-top:3px; }
+    .autocomplete-item { padding:8px 12px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border); transition:background 0.12s; }
+    .autocomplete-item:last-child { border-bottom:none; }
+    .autocomplete-item:hover, .autocomplete-item.active { background:rgba(74,222,128,0.1); color:var(--accent); }
+    .autocomplete-item .city-name { flex:1; font-weight:500; }
+    .autocomplete-item .city-type { font-size:10px; color:var(--text-muted); }
+
+    /* COLOR SWATCHES */
+    .color-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px; }
+    .color-swatch { width:24px; height:24px; border-radius:50%; border:2px solid transparent; cursor:pointer; transition:all 0.15s; }
+    .color-swatch:hover { transform:scale(1.2); }
+    .color-swatch.selected { border-color:white; box-shadow:0 0 0 2px var(--bg); transform:scale(1.1); }
+    .color-section-label { font-size:10px; color:var(--text-muted); margin-bottom:4px; }
+
+    /* FONT OPTIONS */
+    .font-options { display:flex; gap:5px; flex-wrap:wrap; }
+    .font-opt { background:var(--surface2); border:1.5px solid var(--border); border-radius:6px; padding:4px 9px; font-size:11px; cursor:pointer; transition:all 0.15s; color:var(--text-muted); }
+    .font-opt:hover { border-color:var(--accent); color:var(--accent); }
+    .font-opt.selected { border-color:var(--accent); color:var(--accent); background:rgba(74,222,128,0.08); }
+
+    /* RANGE */
+    .range-row { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
+    .range-header { display:flex; justify-content:space-between; align-items:center; }
+    .range-val { font-size:11px; color:var(--accent); font-weight:600; }
+    input[type=range] { -webkit-appearance:none; width:100%; height:4px; background:var(--border); border-radius:4px; outline:none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px var(--accent-glow); }
+
+    /* LABEL PREVIEW */
+    .label-preview { background:var(--surface2); border:1.5px solid var(--border); border-radius:8px; padding:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; min-height:46px; }
+    .label-preview-badge { border-radius:6px; padding:5px 12px; font-family:'Figtree',sans-serif; font-weight:700; color:white; letter-spacing:0.5px; text-transform:uppercase; white-space:nowrap; }
+
+    /* MARKERS LIST */
+    .markers-list { display:flex; flex-direction:column; gap:5px; max-height:220px; overflow-y:auto; }
+    .marker-item { background:var(--surface2); border:1.5px solid var(--border); border-radius:8px; padding:7px 10px; display:flex; align-items:center; gap:8px; cursor:pointer; transition:all 0.15s; }
+    .marker-item:hover { background:rgba(255,255,255,0.03); }
+    .marker-item.selected { border-color:var(--accent); background:rgba(74,222,128,0.06); }
+    .marker-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .marker-item-label { flex:1; font-size:12px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .marker-delete-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:17px; padding:1px 5px; border-radius:4px; transition:color 0.15s; line-height:1; }
+    .marker-delete-btn:hover { color:var(--danger); }
+    .empty-state { text-align:center; color:var(--text-muted); font-size:12px; padding:12px 0; }
+
+    /* EXPORT NOTE */
+    .export-note { font-size:11px; color:var(--text-muted); line-height:1.6; margin-bottom:8px; }
+
+    /* CANVAS AREA */
+    .canvas-area { flex:1; display:flex; flex-direction:column; overflow:hidden; background:radial-gradient(ellipse at center, #1a1f30 0%, #0f1117 100%); }
+    .canvas-toolbar { padding:7px 18px; background:rgba(26,29,39,0.92); border-bottom:1px solid var(--border); backdrop-filter:blur(10px); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .toolbar-hint { font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
+    .kbd { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:10px; font-family:monospace; }
+    .toolbar-sep { width:1px; height:16px; background:var(--border); }
+    .zoom-display { font-size:11px; color:var(--text-muted); margin-left:auto; }
+    .mode-indicator { font-size:12px; color:var(--accent); display:none; align-items:center; gap:6px; animation:pulse 1.5s infinite; }
+    .mode-indicator.visible { display:flex; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    .canvas-wrapper { flex:1; overflow:hidden; display:flex; align-items:center; justify-content:center; padding:18px; }
+    .canvas-stage {
+      position:relative; border-radius:8px; border:1px solid var(--border);
+      background:#1e1e24 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="rgba(255,255,255,0.02)"/><rect x="10" y="10" width="10" height="10" fill="rgba(255,255,255,0.02)"/></svg>') repeat;
+      height:84vh; width:100%;
+      overflow:hidden;
+      display:flex; align-items:center; justify-content:center;
+      cursor:grab;
+    }
+    .canvas-stage.panning { cursor:grabbing; }
+    #mapCanvas { display:block; max-width:100%; max-height:100%; user-select:none; transform-origin:center center; }
+    #mapCanvas.adding { cursor:crosshair; }
+
+    /* MODAL */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:100; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+    .modal-overlay.visible { opacity:1; pointer-events:all; }
+    .modal { background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:24px; width:340px; box-shadow:var(--shadow); transform:scale(0.95); transition:transform 0.2s; }
+    .modal-overlay.visible .modal { transform:scale(1); }
+    .modal h2 { font-size:17px; font-weight:700; margin-bottom:4px; }
+    .modal-sub { font-size:12px; color:var(--text-muted); margin-bottom:18px; }
+    .modal-actions { display:flex; gap:8px; margin-top:18px; }
+    .modal-actions .btn { flex:1; }
+
+    /* TOAST */
+    .toast-container { position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:7px; z-index:200; }
+    .toast { background:var(--surface); border:1.5px solid var(--border); border-radius:10px; padding:11px 16px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:9px; box-shadow:var(--shadow); animation:slideIn 0.3s ease, slideOut 0.3s ease 2.7s forwards; max-width:280px; }
+    .toast.success { border-color:rgba(74,222,128,0.4); }
+    .toast.error   { border-color:rgba(248,113,113,0.4); }
+    @keyframes slideIn { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes slideOut { from{transform:translateX(0);opacity:1} to{transform:translateX(110%);opacity:0} }
+
+    details.sidebar-details { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; margin-bottom:12px; }
+    details.sidebar-details summary { font-size:12px; font-weight:600; color:var(--text); cursor:pointer; list-style:none; outline:none; }
+    details.sidebar-details summary::-webkit-details-marker { display:none; }
+    details.sidebar-details summary::before { content:'▶'; display:inline-block; margin-right:6px; font-size:10px; transition:transform 0.2s; }
+    details.sidebar-details[open] summary::before { transform:rotate(90deg); }
+    details.sidebar-details .details-content { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+
+    ::-webkit-scrollbar { width:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:5px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🗺️</div>
+  <div>
+    <h1>Generator Mapek</h1>
+    <p>Twórz mapki prezentacyjne · eksport PNG z przezroczystym tłem</p>
+  </div>
+</header>
+
+<div class="app-layout">
+  <button class="btn btn-primary exportBtn" id="topExportBtn" style="position:absolute; top:20px; right:20px; z-index:100; font-size:15px; font-weight:700; padding:12px 24px; box-shadow:0 6px 16px rgba(16,191,99,0.3);">
+    💾 Eksportuj PNG (bez tła)
+  </button>
+  <aside class="sidebar">
+
+    <div class="sidebar-tabs" id="sidebarTabs">
+      <button class="tab-btn active" data-tab="tab-map">🗺️ Mapa</button>
+      <button class="tab-btn" data-tab="tab-marker">📍 Znacznik</button>
+      <button class="tab-btn" data-tab="tab-lines">🔗 Połączenia</button>
+    </div>
+
+    <!-- TAB 1: MAPA & EKSPORT -->
+    <div class="tab-content active" id="tab-map">
+
+      <div class="sidebar-section">
+        <span class="sidebar-label">Wybierz mapę</span>
+        <div class="map-grid" id="mapGrid"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <span class="sidebar-label">Kolor mapy</span>
+        <div id="mapColorRow">
+          <div class="color-row">
+            <div class="color-swatch" data-color="brand_green_light" style="background:linear-gradient(135deg,#86efac,#4ade80)" title="Jasny Zielony"></div>
+            <div class="color-swatch" data-color="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D)" title="Zielony"></div>
+            <div class="color-swatch" data-color="brand_green_dark" style="background:linear-gradient(135deg,#166534,#064e3b)" title="Ciemny Zielony"></div>
+            <div class="color-swatch" data-color="brand_navy" style="background:linear-gradient(135deg,#1a4078,#02265C)" title="Granatowy"></div>
+            <div class="color-swatch selected" data-color="brand_white" style="background:linear-gradient(135deg,#ffffff,#cbd5e1)" title="Biały"></div>
+          </div>
+          <details class="sidebar-details" style="margin-top:8px;">
+            <summary>Kolory niestandardowe</summary>
+            <div class="details-content">
+              <div class="color-row">
+                <div class="color-swatch" data-color="blue"   style="background:linear-gradient(135deg,#60a5fa,#2563eb)" title="Niebieski"></div>
+                <div class="color-swatch" data-color="red"    style="background:linear-gradient(135deg,#f87171,#dc2626)" title="Czerwony"></div>
+                <div class="color-swatch" data-color="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c)" title="Pomarańczowy"></div>
+                <div class="color-swatch" data-color="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04)" title="Żółty"></div>
+                <div class="color-swatch" data-color="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed)" title="Fioletowy"></div>
+                <div class="color-swatch" data-color="gray"   style="background:linear-gradient(135deg,#94a3b8,#475569)" title="Szary"></div>
+                <div class="color-swatch" data-color="brand_black" style="background:linear-gradient(135deg,#27272a,#09090b)" title="Czarny"></div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: ZNACZNIK -->
+    <div class="tab-content" id="tab-marker">
+
+      <div class="sidebar-section">
+        <span class="sidebar-label">Dodaj znacznik</span>
+
+        <div class="label-preview">
+          <canvas id="previewCanvas" width="300" height="180" style="margin:0 auto;display:block;"></canvas>
+          <div class="label-preview-badge" id="labelPreviewBadge" style="display:none;">PODPIS</div>
+        </div>
+
+        <div class="input-row" id="labelInputRow">
+          <span class="input-label">Podpis</span>
+          <div style="display:flex;gap:5px;">
+            <input type="text" class="text-input" id="markerLabel" placeholder="np. Kreta, Ateny…" maxlength="60" autocomplete="off" />
+            <button class="btn btn-outline" id="showAllCitiesBtn" style="padding:0 10px;flex-shrink:0;" title="Pokaż wszystkie miasta">🔽</button>
+          </div>
+          <div class="autocomplete-list" id="autocompleteList" style="display:none;"></div>
+        </div>
+
+        <div class="input-row">
+          <span class="input-label">Kolor ikony</span>
+          <div id="colorRow">
+            <div class="color-row">
+              <div class="color-swatch" data-color="brand_green_light" style="background:linear-gradient(135deg,#86efac,#4ade80)"></div>
+              <div class="color-swatch selected" data-color="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D)"></div>
+              <div class="color-swatch" data-color="brand_green_dark" style="background:linear-gradient(135deg,#166534,#064e3b)"></div>
+              <div class="color-swatch" data-color="brand_navy"  style="background:linear-gradient(135deg,#1a4078,#02265C)"></div>
+              <div class="color-swatch" data-color="brand_white" style="background:linear-gradient(135deg,#ffffff,#cbd5e1)"></div>
+            </div>
+            <details class="sidebar-details" style="margin-top:8px;">
+              <summary>Kolory niestandardowe</summary>
+              <div class="details-content">
+                <div class="color-row">
+                  <div class="color-swatch" data-color="blue"   style="background:linear-gradient(135deg,#60a5fa,#2563eb)"></div>
+                  <div class="color-swatch" data-color="red"    style="background:linear-gradient(135deg,#f87171,#dc2626)"></div>
+                  <div class="color-swatch" data-color="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c)"></div>
+                  <div class="color-swatch" data-color="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04)"></div>
+                  <div class="color-swatch" data-color="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed)"></div>
+                  <div class="color-swatch" data-color="brand_black" style="background:linear-gradient(135deg,#27272a,#09090b)"></div>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="input-row">
+          <span class="input-label">Kolor tła podpisu</span>
+          <div id="textColorRow">
+            <div class="color-row">
+              <div class="color-swatch" data-color="brand_green_light" style="background:linear-gradient(135deg,#86efac,#4ade80)"></div>
+              <div class="color-swatch" data-color="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D)"></div>
+              <div class="color-swatch" data-color="brand_green_dark" style="background:linear-gradient(135deg,#166534,#064e3b)"></div>
+              <div class="color-swatch" data-color="brand_navy"  style="background:linear-gradient(135deg,#1a4078,#02265C)"></div>
+              <div class="color-swatch selected" data-color="brand_white" style="background:linear-gradient(135deg,#ffffff,#cbd5e1)"></div>
+            </div>
+            <details class="sidebar-details" style="margin-top:8px;">
+              <summary>Kolory niestandardowe</summary>
+              <div class="details-content">
+                <div class="color-row">
+                  <div class="color-swatch" data-color="blue"   style="background:linear-gradient(135deg,#60a5fa,#2563eb)"></div>
+                  <div class="color-swatch" data-color="red"    style="background:linear-gradient(135deg,#f87171,#dc2626)"></div>
+                  <div class="color-swatch" data-color="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c)"></div>
+                  <div class="color-swatch" data-color="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04)"></div>
+                  <div class="color-swatch" data-color="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed)"></div>
+                  <div class="color-swatch" data-color="brand_black" style="background:linear-gradient(135deg,#27272a,#09090b)"></div>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+
+        <div class="input-row">
+          <span class="input-label">Typ ikony</span>
+          <div class="font-options" id="markerTypeOptions">
+            <div class="font-opt selected" data-type="default">📍 Domyślny</div>
+            <div class="font-opt" data-type="miasto">🏙️ Miasto</div>
+            <div class="font-opt" data-type="plaza">🏖️ Plaża</div>
+            <div class="font-opt" data-type="gory">⛰️ Góry</div>
+            <div class="font-opt" data-type="port">⚓ Port</div>
+            <div class="font-opt" data-type="lotnisko">✈️ Lotnisko</div>
+          </div>
+        </div>
+
+        <div class="input-row">
+          <span class="input-label">Układ wyświetlania</span>
+          <div class="font-options" id="labelPosOptions" style="flex-wrap:wrap;">
+            <div class="font-opt selected" data-pos="bottom">📥 Ikona + Tekst (dół)</div>
+            <div class="font-opt" data-pos="right">▶ Ikona + Tekst (prawo)</div>
+            <div class="font-opt" data-pos="text_only">📝 Tylko tekst</div>
+            <div class="font-opt" data-pos="marker_only">📍 Tylko ikona</div>
+          </div>
+        </div>
+
+        <div class="range-row">
+          <div class="range-header">
+            <span class="input-label">Rozmiar ikony</span>
+            <span class="range-val" id="markerSizeVal">110px</span>
+          </div>
+          <input type="range" id="markerSize" min="30" max="250" value="110" />
+        </div>
+
+        <button class="btn btn-primary" id="addMarkerBtn" style="width:100%;margin-top:4px;">
+          📍 Dodaj znacznik na mapie
+        </button>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <div class="range-row">
+          <div class="range-header">
+            <span class="sidebar-label" style="margin:0;">Rozmiar wszystkich znaczników</span>
+            <span class="range-val" id="globalScaleVal">100%</span>
+          </div>
+          <input type="range" id="globalScaleSlider" min="30" max="220" value="100" />
+        </div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <details class="sidebar-details">
+        <summary>Zastosuj styl do wszystkich znaczników</summary>
+        <div class="details-content">
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px; line-height:1.4;">Nadpisuje wszystkie znaczniki obecnie wybranymi wyżej opcjami (rozmiar, kolory, ikona).</p>
+          <button class="btn btn-outline" id="applyStyleToAllMarkersBtn" style="width:100%;">Zastosuj do wszystkich</button>
+        </div>
+      </details>
+
+      <div class="sidebar-section">
+        <span class="sidebar-label">Dodane znaczniki</span>
+        <div class="markers-list" id="markersList">
+          <div class="empty-state">Brak znaczników · dodaj pierwszy powyżej</div>
+        </div>
+        <button class="btn btn-danger" id="clearAllBtn" style="width:100%;margin-top:8px;font-size:11px;padding:7px;">🗑️ Usuń wszystkie</button>
+      </div>
+    </div>
+
+    <!-- TAB 3: POŁĄCZENIA -->
+    <div class="tab-content" id="tab-lines">
+      <div class="sidebar-section">
+        <span class="sidebar-label">Dodaj połączenie</span>
+        <div class="input-row">
+          <span class="input-label">Od (znacznik początkowy)</span>
+          <select class="text-input" id="connFrom" style="appearance:none; padding-right:10px;"></select>
+        </div>
+        <div class="input-row">
+          <span class="input-label">Do (znacznik końcowy)</span>
+          <select class="text-input" id="connTo" style="appearance:none; padding-right:10px;"></select>
+        </div>
+        <div class="input-row">
+          <span class="input-label">Kształt linii</span>
+          <div class="font-options" id="connTypeOptions">
+            <div class="font-opt selected" data-type="straight" style="font-size:11px;padding:6px 2px;">📏 Prosta</div>
+            <div class="font-opt" data-type="curve_left" style="font-size:11px;padding:6px 2px;">🪃 Łuk lewo</div>
+            <div class="font-opt" data-type="curve_right" style="font-size:11px;padding:6px 2px;">🪃 Łuk prawo</div>
+          </div>
+        </div>
+        <div class="input-row">
+          <span class="input-label">Styl linii</span>
+          <div class="font-options" id="connStyleOptions">
+            <div class="font-opt selected" data-style="solid">➖ Ciągła</div>
+            <div class="font-opt" data-style="dashed">🪲 Przerywana</div>
+          </div>
+        </div>
+        <div class="input-row">
+          <span class="input-label">Kolor linii</span>
+          <div id="connColorRow">
+            <div class="color-row">
+              <div class="color-swatch" data-color="brand_green_light" style="background:linear-gradient(135deg,#86efac,#4ade80)"></div>
+              <div class="color-swatch selected" data-color="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D)"></div>
+              <div class="color-swatch" data-color="brand_green_dark" style="background:linear-gradient(135deg,#166534,#064e3b)"></div>
+              <div class="color-swatch" data-color="brand_navy"  style="background:linear-gradient(135deg,#1a4078,#02265C)"></div>
+              <div class="color-swatch" data-color="brand_white" style="background:linear-gradient(135deg,#ffffff,#cbd5e1)"></div>
+            </div>
+            <details class="sidebar-details" style="margin-top:8px;">
+              <summary>Kolory niestandardowe</summary>
+              <div class="details-content">
+                <div class="color-row">
+                  <div class="color-swatch" data-color="blue"   style="background:linear-gradient(135deg,#60a5fa,#2563eb)"></div>
+                  <div class="color-swatch" data-color="red"    style="background:linear-gradient(135deg,#f87171,#dc2626)"></div>
+                  <div class="color-swatch" data-color="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c)"></div>
+                  <div class="color-swatch" data-color="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04)"></div>
+                  <div class="color-swatch" data-color="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed)"></div>
+                  <div class="color-swatch" data-color="brand_black" style="background:linear-gradient(135deg,#27272a,#09090b)"></div>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+        <div class="range-row">
+          <div class="range-header">
+            <span class="input-label">Grubość linii</span>
+            <span class="range-val" id="connThicknessVal">3px</span>
+          </div>
+          <input type="range" id="connThickness" min="1" max="15" value="3" />
+        </div>
+        <button class="btn btn-primary" id="addConnBtn" style="width:100%;margin-top:4px;">
+          🔗 Połącz znaczniki
+        </button>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <details class="sidebar-details">
+        <summary>Zastosuj styl do wszystkich połączeń</summary>
+        <div class="details-content">
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px; line-height:1.4;">Nadpisuje wszystkie połączenia wybranymi wyżej opcjami.</p>
+          <button class="btn btn-outline" id="applyStyleToAllConnsBtn" style="width:100%;">Zastosuj do wszystkich</button>
+        </div>
+      </details>
+
+      <div class="sidebar-section">
+        <span class="sidebar-label">Lista połączeń</span>
+        <div class="markers-list" id="connsList">
+          <div class="empty-state">Brak połączeń</div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <main class="canvas-area">
+    <div class="canvas-toolbar">
+      <div class="toolbar-hint"><span class="kbd">Scroll</span> zoom</div>
+      <div class="toolbar-sep"></div>
+      <div class="toolbar-hint"><span class="kbd">Drag</span> przesuwaj mapę</div>
+      <div class="toolbar-sep"></div>
+      <div class="toolbar-hint"><span class="kbd">2× klik</span> edytuj znacznik</div>
+      <div class="toolbar-sep"></div>
+      <div class="toolbar-hint"><span class="kbd">Ctrl+Z</span> cofnij</div>
+      <div class="toolbar-sep"></div>
+      <div class="toolbar-hint"><span class="kbd">Del</span> usuń zaznaczony</div>
+      <div class="mode-indicator" id="modeIndicator">🎯 Kliknij na mapie aby umieścić znacznik</div>
+      <div class="zoom-display" id="zoomDisplay">100%</div>
+    </div>
+    <div class="canvas-wrapper">
+      <div class="canvas-stage" id="canvasStage">
+        <canvas id="mapCanvas" width="1600" height="1400"></canvas>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL EDYCJI POŁĄCZENIA -->
+<div class="modal-overlay" id="editConnModal">
+  <div class="modal">
+    <h2 style="margin-bottom:16px;">✏️ Edytuj połączenie</h2>
+    <div class="input-row">
+      <span class="input-label">Kształt linii</span>
+      <div class="font-options" id="editConnTypeOptions">
+        <div class="font-opt" data-type="straight" style="font-size:11px;padding:6px 2px;">📏 Prosta</div>
+        <div class="font-opt" data-type="curve_left" style="font-size:11px;padding:6px 2px;">🪃 Łuk lewo</div>
+        <div class="font-opt" data-type="curve_right" style="font-size:11px;padding:6px 2px;">🪃 Łuk prawo</div>
+      </div>
+    </div>
+    <div class="input-row">
+      <span class="input-label">Styl linii</span>
+      <div class="font-options" id="editConnStyleOptions">
+        <div class="font-opt" data-style="solid">➖ Ciągła</div>
+        <div class="font-opt" data-style="dashed">🪲 Przerywana</div>
+      </div>
+    </div>
+    <div class="input-row">
+      <span class="input-label">Kolor linii</span>
+      <div id="editConnColorRow">
+        <div class="color-row">
+          <div class="color-swatch" data-color="brand_green_light" style="background:linear-gradient(135deg,#86efac,#4ade80)"></div>
+              <div class="color-swatch selected" data-color="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D)"></div>
+              <div class="color-swatch" data-color="brand_green_dark" style="background:linear-gradient(135deg,#166534,#064e3b)"></div>
+          <div class="color-swatch" data-color="brand_navy"  style="background:linear-gradient(135deg,#1a4078,#02265C)"></div>
+          <div class="color-swatch" data-color="brand_white" style="background:linear-gradient(135deg,#ffffff,#cbd5e1)"></div>
+        </div>
+        <details class="sidebar-details" style="margin-top:8px;">
+          <summary>Kolory niestandardowe</summary>
+          <div class="details-content">
+            <div class="color-row">
+              <div class="color-swatch" data-color="blue"   style="background:linear-gradient(135deg,#60a5fa,#2563eb)"></div>
+              <div class="color-swatch" data-color="red"    style="background:linear-gradient(135deg,#f87171,#dc2626)"></div>
+              <div class="color-swatch" data-color="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c)"></div>
+              <div class="color-swatch" data-color="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04)"></div>
+              <div class="color-swatch" data-color="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed)"></div>
+              <div class="color-swatch" data-color="brand_black" style="background:linear-gradient(135deg,#27272a,#09090b)"></div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+    <div class="range-row" style="margin-top:16px; margin-bottom:16px;">
+      <div class="range-header">
+        <span class="input-label">Grubość linii</span>
+        <span class="range-val" id="editConnThicknessVal">3px</span>
+      </div>
+      <input type="range" id="editConnThickness" min="1" max="15" value="3" />
+    </div>
+    <div class="modal-actions" style="display:flex; gap:8px;">
+      <button class="btn btn-danger" id="editConnDeleteBtn" style="flex:1;">Usuń</button>
+      <button class="btn btn-cancel" id="editConnCancelBtn" style="flex:1;">Anuluj</button>
+      <button class="btn btn-primary" id="editConnSaveBtn" style="flex:1;">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDYCJI ZNACZNIKA -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h2>✏️ Edytuj znacznik</h2>
+    <p class="modal-sub">Zmień podpis, ikonę lub usuń znacznik</p>
+    <div class="input-row">
+      <span class="input-label">Podpis</span>
+      <input type="text" class="text-input" id="editLabel" maxlength="80" />
+    </div>
+    <div class="input-row">
+      <span class="input-label">Typ ikony</span>
+      <div class="font-options" id="editMarkerTypeOptions">
+        <div class="font-opt" data-type="default">📍 Domyślny</div>
+        <div class="font-opt" data-type="miasto">🏙️ Miasto</div>
+        <div class="font-opt" data-type="plaza">🏖️ Plaża</div>
+        <div class="font-opt" data-type="gory">⛰️ Góry</div>
+        <div class="font-opt" data-type="port">⚓ Port</div>
+        <div class="font-opt" data-type="lotnisko">✈️ Lotnisko</div>
+      </div>
+    </div>
+    <div class="input-row">
+      <span class="input-label">Układ wyświetlania</span>
+      <div class="font-options" id="editLabelPosOptions" style="flex-wrap:wrap;">
+        <div class="font-opt" data-pos="bottom">📥 Ikona + Tekst (dół)</div>
+        <div class="font-opt" data-pos="right">▶ Ikona + Tekst (prawo)</div>
+        <div class="font-opt" data-pos="text_only">📝 Tylko tekst</div>
+        <div class="font-opt" data-pos="marker_only">📍 Tylko ikona</div>
+      </div>
+    </div>
+    <div class="input-row">
+      <span class="input-label">Kolor ikony</span>
+      <div id="editMarkerColorRow">
+        <div class="color-row">
+          <div class="color-swatch" data-color="brand_green_light" style="background:linear-gradient(135deg,#86efac,#4ade80)"></div>
+              <div class="color-swatch selected" data-color="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D)"></div>
+              <div class="color-swatch" data-color="brand_green_dark" style="background:linear-gradient(135deg,#166534,#064e3b)"></div>
+          <div class="color-swatch" data-color="brand_navy"  style="background:linear-gradient(135deg,#1a4078,#02265C)"></div>
+          <div class="color-swatch" data-color="brand_white" style="background:linear-gradient(135deg,#ffffff,#cbd5e1)"></div>
+        </div>
+        <details class="sidebar-details" style="margin-top:8px;">
+          <summary>Kolory niestandardowe</summary>
+          <div class="details-content">
+            <div class="color-row">
+              <div class="color-swatch" data-color="blue"   style="background:linear-gradient(135deg,#60a5fa,#2563eb)"></div>
+              <div class="color-swatch" data-color="red"    style="background:linear-gradient(135deg,#f87171,#dc2626)"></div>
+              <div class="color-swatch" data-color="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c)"></div>
+              <div class="color-swatch" data-color="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04)"></div>
+              <div class="color-swatch" data-color="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed)"></div>
+              <div class="color-swatch" data-color="brand_black" style="background:linear-gradient(135deg,#27272a,#09090b)"></div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+    <div class="input-row">
+      <span class="input-label">Kolor tła podpisu</span>
+      <div id="editTextColorRow">
+        <div class="color-row">
+          <div class="color-swatch" data-color="brand_green_light" style="background:linear-gradient(135deg,#86efac,#4ade80)"></div>
+              <div class="color-swatch" data-color="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D)"></div>
+              <div class="color-swatch" data-color="brand_green_dark" style="background:linear-gradient(135deg,#166534,#064e3b)"></div>
+          <div class="color-swatch" data-color="brand_navy"  style="background:linear-gradient(135deg,#1a4078,#02265C)"></div>
+          <div class="color-swatch selected" data-color="brand_white" style="background:linear-gradient(135deg,#ffffff,#cbd5e1)"></div>
+        </div>
+        <details class="sidebar-details" style="margin-top:8px;">
+          <summary>Kolory niestandardowe</summary>
+          <div class="details-content">
+            <div class="color-row">
+              <div class="color-swatch" data-color="blue"   style="background:linear-gradient(135deg,#60a5fa,#2563eb)"></div>
+              <div class="color-swatch" data-color="red"    style="background:linear-gradient(135deg,#f87171,#dc2626)"></div>
+              <div class="color-swatch" data-color="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c)"></div>
+              <div class="color-swatch" data-color="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04)"></div>
+              <div class="color-swatch" data-color="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed)"></div>
+              <div class="color-swatch" data-color="brand_black" style="background:linear-gradient(135deg,#27272a,#09090b)"></div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+    <div class="range-row">
+      <div class="range-header">
+        <span class="input-label">Rozmiar ikony</span>
+        <span class="range-val" id="editMarkerSizeVal">110px</span>
+      </div>
+      <input type="range" id="editMarkerSize" min="30" max="250" value="110" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="editCancelBtn">Anuluj</button>
+      <button class="btn btn-danger" id="editDeleteBtn" style="flex:0.7;">🗑️</button>
+      <button class="btn btn-primary" id="editSaveBtn">💾 Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="images.js"></script>
+<script>
+// ── BAZA MIAST ────────────────────────────────────────────────────────────────
+const CITY_DB = {
+  italy: [
+    { name: 'Rzym',             rx: 0.450, ry: 0.528, type: 'miasto'   },
+    { name: 'Mediolan',         rx: 0.294, ry: 0.172, type: 'miasto'   },
+    { name: 'Wenecja',          rx: 0.498, ry: 0.188, type: 'miasto'   },
+    { name: 'Neapol',           rx: 0.568, ry: 0.646, type: 'miasto'   },
+    { name: 'Florencja',        rx: 0.415, ry: 0.383, type: 'miasto'   },
+    { name: 'Genua',            rx: 0.210, ry: 0.265, type: 'miasto'   },
+    { name: 'Piza',             rx: 0.360, ry: 0.366, type: 'miasto'   },
+    { name: 'Werona',           rx: 0.434, ry: 0.174, type: 'miasto'   },
+    { name: 'Bolonia',          rx: 0.436, ry: 0.272, type: 'miasto'   },
+    { name: 'Bari',             rx: 0.778, ry: 0.594, type: 'miasto'   },
+    { name: 'Palermo',          rx: 0.472, ry: 0.838, type: 'miasto'   },
+    { name: 'Katania',          rx: 0.554, ry: 0.868, type: 'miasto'   },
+    { name: 'Sycylia',          rx: 0.510, ry: 0.850, type: 'wyspa'    },
+    { name: 'Sardynia',         rx: 0.238, ry: 0.588, type: 'wyspa'    },
+    { name: 'Rzym (Lotnisko)',  rx: 0.434, ry: 0.528, type: 'lotnisko' },
+  ],
+  albania: [
+    { name: 'Tirana',           rx: 0.456, ry: 0.400, type: 'miasto'   },
+    { name: 'Durrës',           rx: 0.412, ry: 0.400, type: 'miasto'   },
+    { name: 'Saranda',          rx: 0.544, ry: 0.900, type: 'miasto'   },
+    { name: 'Wlora',            rx: 0.434, ry: 0.700, type: 'miasto'   },
+    { name: 'Ksamil',           rx: 0.544, ry: 0.950, type: 'plaza'    },
+  ],
+  croatia: [
+    { name: 'Zagrzeb',          rx: 0.600, ry: 0.200, type: 'miasto'   },
+    { name: 'Split',            rx: 0.600, ry: 0.600, type: 'miasto'   },
+    { name: 'Dubrownik',        rx: 0.900, ry: 0.900, type: 'miasto'   },
+    { name: 'Zadar',            rx: 0.400, ry: 0.500, type: 'miasto'   },
+    { name: 'Pula',             rx: 0.100, ry: 0.300, type: 'miasto'   },
+    { name: 'Makarska',         rx: 0.700, ry: 0.700, type: 'miasto'   },
+  ],
+  portugal: [
+    { name: 'Lizbona',          rx: 0.405, ry: 0.700, type: 'miasto'   },
+    { name: 'Porto',            rx: 0.405, ry: 0.200, type: 'miasto'   },
+    { name: 'Faro',             rx: 0.502, ry: 0.950, type: 'miasto'   },
+    { name: 'Albufeira',        rx: 0.478, ry: 0.950, type: 'miasto'   },
+    { name: 'Lagos',            rx: 0.405, ry: 0.950, type: 'miasto'   },
+  ],
+  spain: [
+    { name: 'Madryt',           rx: 0.500, ry: 0.500, type: 'miasto'   },
+    { name: 'Barcelona',        rx: 0.850, ry: 0.300, type: 'miasto'   },
+    { name: 'Walencja',         rx: 0.700, ry: 0.500, type: 'miasto'   },
+    { name: 'Alicante',         rx: 0.650, ry: 0.620, type: 'miasto'   },
+    { name: 'Malaga',           rx: 0.450, ry: 0.780, type: 'miasto'   },
+    { name: 'Sewilla',          rx: 0.350, ry: 0.700, type: 'miasto'   },
+    { name: 'Majorka',          rx: 0.950, ry: 0.500, type: 'wyspa'    },
+  ],
+  turkey: [
+    { name: 'Stambuł',              rx: 0.163, ry: 0.365, type: 'miasto'   },
+    { name: 'Izmir',                rx: 0.102, ry: 0.508, type: 'miasto'   },
+    { name: 'Kusadasi',             rx: 0.104, ry: 0.544, type: 'miasto'   },
+    { name: 'Bodrum',               rx: 0.133, ry: 0.578, type: 'miasto'   },
+    { name: 'Marmaris',             rx: 0.168, ry: 0.610, type: 'miasto'   },
+    { name: 'Fethiye',              rx: 0.218, ry: 0.610, type: 'miasto'   },
+    { name: 'Antalya',              rx: 0.362, ry: 0.632, type: 'miasto'   },
+    { name: 'Antalya (Lotnisko)',   rx: 0.372, ry: 0.622, type: 'lotnisko' },
+    { name: 'Alanya',               rx: 0.428, ry: 0.648, type: 'miasto'   },
+    { name: 'Ankara',               rx: 0.440, ry: 0.382, type: 'miasto'   },
+    { name: 'Kapadocja',            rx: 0.558, ry: 0.438, type: 'region'   },
+  ],
+  egypt: [
+    { name: 'Kair',                   rx: 0.478, ry: 0.232, type: 'miasto'   },
+    { name: 'Aleksandria',            rx: 0.374, ry: 0.104, type: 'miasto'   },
+    { name: 'Giza',                   rx: 0.465, ry: 0.246, type: 'miasto'   },
+    { name: 'Sharm el-Sheikh',        rx: 0.676, ry: 0.328, type: 'miasto'   },
+    { name: 'Hurghada',               rx: 0.658, ry: 0.422, type: 'miasto'   },
+    { name: 'Hurghada (Lotnisko)',    rx: 0.648, ry: 0.412, type: 'lotnisko' },
+    { name: 'Luksor',                 rx: 0.552, ry: 0.528, type: 'miasto'   },
+    { name: 'Asuan',                  rx: 0.588, ry: 0.670, type: 'miasto'   },
+    { name: 'Marsa Alam',             rx: 0.722, ry: 0.558, type: 'miasto'   },
+    { name: 'Marsa Alam (Lotnisko)', rx: 0.712, ry: 0.548, type: 'lotnisko' },
+  ],
+  greece: [
+    { name: 'Saloniki',            rx: 0.442, ry: 0.236, type: 'miasto'   },
+    { name: 'Makedonia',           rx: 0.354, ry: 0.222, type: 'region'   },
+    { name: 'Chalkidiki',          rx: 0.517, ry: 0.262, type: 'region'   },
+    { name: 'Thassos',             rx: 0.587, ry: 0.170, type: 'wyspa'    },
+    { name: 'Tesalia',             rx: 0.374, ry: 0.375, type: 'region'   },
+    { name: 'Korfu',               rx: 0.144, ry: 0.362, type: 'wyspa'    },
+    { name: 'Kefalonia',           rx: 0.197, ry: 0.540, type: 'wyspa'    },
+    { name: 'Zakynthos',           rx: 0.210, ry: 0.610, type: 'wyspa'    },
+    { name: 'Skopelos',            rx: 0.506, ry: 0.383, type: 'wyspa'    },
+    { name: 'Evia',                rx: 0.540, ry: 0.466, type: 'wyspa'    },
+    { name: 'Attyka',              rx: 0.466, ry: 0.516, type: 'region'   },
+    { name: 'Ateny',               rx: 0.478, ry: 0.553, type: 'miasto'   },
+    { name: 'Ateny (Lotnisko)',    rx: 0.496, ry: 0.564, type: 'lotnisko' },
+    { name: 'Pireus (Port)',       rx: 0.463, ry: 0.563, type: 'port'     },
+    { name: 'Peloponez',           rx: 0.358, ry: 0.646, type: 'region'   },
+    { name: 'Korynt',              rx: 0.418, ry: 0.576, type: 'miasto'   },
+    { name: 'Patras',              rx: 0.324, ry: 0.550, type: 'miasto'   },
+    { name: 'Lesbos',              rx: 0.676, ry: 0.366, type: 'wyspa'    },
+    { name: 'Chios',               rx: 0.700, ry: 0.462, type: 'wyspa'    },
+    { name: 'Samos',               rx: 0.733, ry: 0.522, type: 'wyspa'    },
+    { name: 'Andros',              rx: 0.566, ry: 0.526, type: 'wyspa'    },
+    { name: 'Tinos',               rx: 0.596, ry: 0.556, type: 'wyspa'    },
+    { name: 'Mykonos',             rx: 0.628, ry: 0.596, type: 'wyspa'    },
+    { name: 'Santorini',           rx: 0.576, ry: 0.740, type: 'wyspa'    },
+    { name: 'Milos',               rx: 0.524, ry: 0.693, type: 'wyspa'    },
+    { name: 'Kos',                 rx: 0.760, ry: 0.616, type: 'wyspa'    },
+    { name: 'Rodos',               rx: 0.798, ry: 0.720, type: 'wyspa'    },
+    { name: 'Lindos',              rx: 0.798, ry: 0.750, type: 'miasto'   },
+    { name: 'Karpathos',           rx: 0.768, ry: 0.788, type: 'wyspa'    },
+    { name: 'Kreta',               rx: 0.500, ry: 0.893, type: 'wyspa'    },
+    { name: 'Heraklion (Lotnisko)',rx: 0.526, ry: 0.840, type: 'lotnisko' },
+    { name: 'Chania',              rx: 0.403, ry: 0.808, type: 'miasto'   },
+    { name: 'Rethymno',            rx: 0.446, ry: 0.848, type: 'miasto'   },
+  ],
+  mauritius: [
+    { name: 'Grand Gaube',          rx: 0.522, ry: 0.133, type: 'miasto'   },
+    { name: 'Grand Baie',           rx: 0.422, ry: 0.153, type: 'miasto'   },
+    { name: 'Trou aux Biches',      rx: 0.295, ry: 0.216, type: 'miasto'   },
+    { name: 'Port Louis',           rx: 0.298, ry: 0.333, type: 'miasto'   },
+    { name: 'Belle Mare',           rx: 0.636, ry: 0.343, type: 'miasto'   },
+    { name: 'Trou d\'Eau Douce',    rx: 0.646, ry: 0.416, type: 'miasto'   },
+    { name: 'Flic en Flac',         rx: 0.216, ry: 0.458, type: 'miasto'   },
+    { name: 'Quatre Bornes',        rx: 0.392, ry: 0.488, type: 'miasto'   },
+    { name: 'Tamarin',              rx: 0.218, ry: 0.516, type: 'miasto'   },
+    { name: 'Curepipe',             rx: 0.432, ry: 0.526, type: 'miasto'   },
+    { name: 'Black River',          rx: 0.220, ry: 0.560, type: 'miasto'   },
+    { name: 'Chamarel',             rx: 0.280, ry: 0.596, type: 'miasto'   },
+    { name: 'Le Morne',             rx: 0.180, ry: 0.656, type: 'miejsce'  },
+    { name: 'SSR (Lotnisko)',        rx: 0.556, ry: 0.686, type: 'lotnisko' },
+    { name: 'Mahebourg',            rx: 0.572, ry: 0.712, type: 'miasto'   },
+    { name: 'Blue Bay',             rx: 0.592, ry: 0.746, type: 'miasto'   },
+    { name: 'Souillac',             rx: 0.395, ry: 0.806, type: 'miasto'   },
+  ],
+  world: [
+    { name: 'Grecja',           rx: 0.530, ry: 0.456, type: 'region'   },
+    { name: 'Hiszpania',        rx: 0.470, ry: 0.445, type: 'region'   },
+    { name: 'Turcja',           rx: 0.550, ry: 0.456, type: 'region'   },
+    { name: 'Egipt',            rx: 0.540, ry: 0.494, type: 'region'   },
+    { name: 'Włochy',           rx: 0.500, ry: 0.445, type: 'region'   },
+    { name: 'Mauritius',        rx: 0.620, ry: 0.609, type: 'region'   },
+    { name: 'Malediwy',         rx: 0.680, ry: 0.554, type: 'region'   },
+    { name: 'Tajlandia',        rx: 0.770, ry: 0.516, type: 'region'   },
+    { name: 'Dominikana',       rx: 0.280, ry: 0.511, type: 'region'   },
+    { name: 'Meksyk',           rx: 0.180, ry: 0.500, type: 'region'   },
+    { name: 'Zjednoczone Emiraty Arabskie', rx: 0.610, ry: 0.500, type: 'region' },
+    { name: 'USA',              rx: 0.200, ry: 0.445, type: 'region'   },
+    { name: 'Kuba',             rx: 0.250, ry: 0.511, type: 'region'   },
+    { name: 'Chorwacja',        rx: 0.510, ry: 0.440, type: 'region'   },
+    { name: 'Czarnogóra',       rx: 0.520, ry: 0.445, type: 'region'   },
+    { name: 'Cypr',             rx: 0.550, ry: 0.467, type: 'region'   },
+    { name: 'Bułgaria',         rx: 0.530, ry: 0.440, type: 'region'   },
+    { name: 'Tunezja',          rx: 0.500, ry: 0.473, type: 'region'   },
+    { name: 'Maroko',           rx: 0.460, ry: 0.478, type: 'region'   },
+    { name: 'Polska',           rx: 0.510, ry: 0.407, type: 'region'   },
+  ],
+  crete: [
+    { name: 'Chania',           rx: 0.250, ry: 0.468, type: 'miasto'   },
+    { name: 'Rethymno',         rx: 0.400, ry: 0.484, type: 'miasto'   },
+    { name: 'Heraklion',        rx: 0.580, ry: 0.484, type: 'miasto'   },
+    { name: 'Heraklion (Lotnisko)', rx: 0.600, ry: 0.480, type: 'lotnisko' },
+    { name: 'Agios Nikolaos',   rx: 0.800, ry: 0.500, type: 'miasto'   },
+    { name: 'Elafonisi',        rx: 0.050, ry: 0.500, type: 'plaza'    },
+    { name: 'Hersonissos',      rx: 0.680, ry: 0.484, type: 'miasto'   },
+    { name: 'Malia',            rx: 0.720, ry: 0.484, type: 'miasto'   },
+    { name: 'Ierapetra',        rx: 0.800, ry: 0.538, type: 'miasto'   },
+    { name: 'Sitia',            rx: 0.920, ry: 0.506, type: 'miasto'   },
+  ],
+  rhodes: [
+    { name: 'Rodos (miasto)',   rx: 0.776, ry: 0.050, type: 'miasto'   },
+    { name: 'Rodos (Lotnisko)', rx: 0.737, ry: 0.100, type: 'lotnisko' },
+    { name: 'Lindos',           rx: 0.776, ry: 0.500, type: 'miasto'   },
+    { name: 'Faliraki',         rx: 0.776, ry: 0.250, type: 'miasto'   },
+    { name: 'Prasonisi',        rx: 0.278, ry: 0.950, type: 'plaza'    },
+    { name: 'Kolymbia',         rx: 0.784, ry: 0.350, type: 'miasto'   },
+  ],
+  kos: [
+    { name: 'Kos (miasto)',     rx: 0.980, ry: 0.404, type: 'miasto'   },
+    { name: 'Kos (Lotnisko)',   rx: 0.400, ry: 0.500, type: 'lotnisko' },
+    { name: 'Tigaki',           rx: 0.700, ry: 0.372, type: 'miasto'   },
+    { name: 'Kardamena',        rx: 0.450, ry: 0.532, type: 'miasto'   },
+    { name: 'Kefalos',          rx: 0.050, ry: 0.660, type: 'miasto'   },
+    { name: 'Marmari',          rx: 0.600, ry: 0.404, type: 'miasto'   },
+    { name: 'Mastichari',       rx: 0.500, ry: 0.468, type: 'miasto'   },
+  ],
+  zakynthos: [
+    { name: 'Zakynthos (miasto)', rx: 0.900, ry: 0.497, type: 'miasto' },
+    { name: 'Zakynthos (Lotnisko)', rx: 0.850, ry: 0.590, type: 'lotnisko' },
+    { name: 'Laganas',          rx: 0.700, ry: 0.682, type: 'miasto'   },
+    { name: 'Zatoka Wraku (Navagio)', rx: 0.250, ry: 0.173, type: 'plaza' },
+    { name: 'Tsilivi',          rx: 0.850, ry: 0.358, type: 'miasto'   },
+    { name: 'Alykes',           rx: 0.600, ry: 0.220, type: 'plaza'    },
+    { name: 'Kalamaki',         rx: 0.800, ry: 0.682, type: 'miasto'   },
+    { name: 'Argassi',          rx: 0.920, ry: 0.636, type: 'miasto'   },
+  ],
+};
+
+// ── PALETA KOLORÓW ────────────────────────────────────────────────────────────
+const PALETTE = {
+  brand_green_light: { c1:'#86efac', c2:'#4ade80' },
+  brand_green:       { c1:'#3bd67c', c2:'#18A95D' },
+  brand_green_dark:  { c1:'#166534', c2:'#064e3b' },
+  brand_navy:  { c1:'#1a4078', c2:'#02265C' },
+  brand_white: { c1:'#ffffff', c2:'#cbd5e1' },
+  brand_black: { c1:'#27272a', c2:'#09090b' },
+  blue:        { c1:'#60a5fa', c2:'#2563eb' },
+  red:         { c1:'#f87171', c2:'#dc2626' },
+  orange:      { c1:'#fb923c', c2:'#ea580c' },
+  yellow:      { c1:'#facc15', c2:'#ca8a04' },
+  purple:      { c1:'#c084fc', c2:'#7c3aed' },
+  gray:        { c1:'#94a3b8', c2:'#475569' },
+};
+
+const BUILTIN_MAPS = [
+  { id:'world',     name:'Świat',     sub:'Cały świat',            emoji:'🌍', src:'images/Mapa świata.png', category: 'Świat' },
+  { id:'albania',   name:'Albania',   sub:'Republika Albanii',     emoji:'🦅', src:'images/Albania.png', category: 'Kraje' },
+  { id:'croatia',   name:'Chorwacja', sub:'Republika Chorwacji',   emoji:'⛵', src:'images/Chorwacja.png', category: 'Kraje' },
+  { id:'portugal',  name:'Portugalia',sub:'Republika Portugalska', emoji:'🏄', src:'images/Portugalia.png', category: 'Kraje' },
+  { id:'spain',     name:'Hiszpania', sub:'Królestwo Hiszpanii',   emoji:'💃', src:'images/Hiszpania.png', category: 'Kraje' },
+  { id:'egypt',     name:'Egipt',     sub:'Arabska Republika',     emoji:'🐪', src:'images/Egipt.png', category: 'Kraje' },
+  { id:'greece',    name:'Grecja',    sub:'Republika Grecka',      emoji:'🏛️', src:'images/Grecja.png', category: 'Kraje' },
+  { id:'mauritius', name:'Mauritius', sub:'Republika Mauritiusu',  emoji:'🌴', src:'images/Mauritius.png', extrudeScale: 2, category: 'Kraje' },
+  { id:'turkey',    name:'Turcja',    sub:'Republika Turcji',      emoji:'🕌', src:'images/Turcja.png', category: 'Kraje' },
+  { id:'italy',     name:'Włochy',    sub:'Republika Włoska',      emoji:'🍕', src:'images/Wlochy.png', category: 'Kraje' },
+  { id:'kos',       name:'Kos',       sub:'Grecja',                emoji:'🏝️', src:'images/Kos.png', category: 'Wyspy Greckie' },
+  { id:'crete',     name:'Kreta',     sub:'Grecja',                emoji:'🏝️', src:'images/Kreta.png', category: 'Wyspy Greckie' },
+  { id:'rhodes',    name:'Rodos',     sub:'Grecja',                emoji:'🏝️', src:'images/Rodos.png', category: 'Wyspy Greckie' },
+  { id:'zakynthos', name:'Zakynthos', sub:'Grecja',                emoji:'🏝️', src:'images/Zakhyntos.png', category: 'Wyspy Greckie' },
+];
+
+// Sort maps and cities alphabetically
+BUILTIN_MAPS.sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+Object.values(CITY_DB).forEach(arr => arr.sort((a, b) => a.name.localeCompare(b.name, 'pl')));
+const MARKER_SRCS = {
+  default:  'images/Znacznik.png',
+  port:     'images/port.png',
+  lotnisko: 'images/lotnisko.png',
+  miasto:   'images/miasto.png',
+  plaza:    'images/plaża.png',
+  gory:     'images/góry.png',
+};
+
+const MAP_PADDING = 30;
+const mapImages  = {};
+const markerImgs = {};
+
+// ── STAN APLIKACJI ────────────────────────────────────────────────────────────
+const state = {
+  activeMapId: 'greece',
+  markers:     [],
+  connections: [],
+  addingMode:  false,
+  draggingId:  null, dragOffX: 0, dragOffY: 0,
+  selectedId:  null,
+  bgColor:     'brand_green',
+  textColor:   'brand_white',
+  fontSize:    34,
+  markerSize:  110,
+  markerType:  'default',
+  markerColor: 'brand_green',
+  mapColor:    'brand_white',
+  globalScale: 1.0,
+  labelPos:    'bottom',
+  connType:    'straight',
+  connStyle:   'solid',
+  connColor:   'brand_green',
+  connThickness: 3,
+};
+
+// ── UNDO ──────────────────────────────────────────────────────────────────────
+const undoStack = [];
+function saveState() {
+  undoStack.push(JSON.stringify({ markers: state.markers, connections: state.connections }));
+  if (undoStack.length > 50) undoStack.shift();
+}
+window.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'z') {
+    e.preventDefault();
+    if (undoStack.length) { 
+      const st = JSON.parse(undoStack.pop()); 
+      state.markers = st.markers; 
+      state.connections = st.connections || [];
+      buildMarkersList(); updateConnDropdowns(); buildConnsList(); render(); 
+    }
+  }
+});
+
+// ── ZOOM & PAN ────────────────────────────────────────────────────────────────
+let zoomLevel = 1, panX = 0, panY = 0;
+let isPanning = false, panStartX = 0, panStartY = 0;
+
+const canvas = document.getElementById('mapCanvas');
+const ctx    = canvas.getContext('2d');
+const stage  = document.getElementById('canvasStage');
+
+function updateTransform() {
+  canvas.style.transform = `translate(${panX}px,${panY}px) scale(${zoomLevel})`;
+  document.getElementById('zoomDisplay').textContent = Math.round(zoomLevel * 100) + '%';
+}
+
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor  = e.deltaY < 0 ? 1.1 : 0.9;
+  const newZoom = Math.max(0.35, Math.min(zoomLevel * factor, 6));
+
+  // Zoom towards cursor
+  const sr  = stage.getBoundingClientRect();
+  const scx = sr.left + sr.width  / 2;
+  const scy = sr.top  + sr.height / 2;
+  const cx  = e.clientX - scx;
+  const cy  = e.clientY - scy;
+  panX = cx - (cx - panX) * (newZoom / zoomLevel);
+  panY = cy - (cy - panY) * (newZoom / zoomLevel);
+  zoomLevel = newZoom;
+  updateTransform();
+}, { passive: false });
+
+// ── CANVAS COORDINATE HELPER ──────────────────────────────────────────────────
+function canvasXY(e) {
+  const r  = canvas.getBoundingClientRect();
+  const sx = canvas.width  / r.width;
+  const sy = canvas.height / r.height;
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
+}
+
+// ── CANVAS EVENTS ─────────────────────────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const pos = canvasXY(e);
+
+  if (state.addingMode) {
+    const label = document.getElementById('markerLabel')?.value.trim() || '';
+    placeMarker(pos.x, pos.y, label);
+    return;
+  }
+
+  const hit = hitMarker(pos.x, pos.y);
+  if (hit) {
+    saveState();
+    state.draggingId = hit.id;
+    state.dragOffX   = pos.x - hit.x;
+    state.dragOffY   = pos.y - hit.y;
+    state.selectedId = hit.id;
+    buildMarkersList(); render();
+  } else {
+    isPanning  = true;
+    panStartX  = e.clientX - panX;
+    panStartY  = e.clientY - panY;
+    stage.classList.add('panning');
+    state.selectedId = null;
+    buildMarkersList(); render();
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (isPanning) {
+    panX = e.clientX - panStartX;
+    panY = e.clientY - panStartY;
+    updateTransform();
+    return;
+  }
+  if (state.draggingId) {
+    const r   = canvas.getBoundingClientRect();
+    const sx  = canvas.width  / r.width;
+    const sy  = canvas.height / r.height;
+    const pos = { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+    const m   = state.markers.find(m => m.id === state.draggingId);
+    if (m) {
+      m.x = Math.max(0, Math.min(canvas.width,  pos.x - state.dragOffX));
+      m.y = Math.max(0, Math.min(canvas.height, pos.y - state.dragOffY));
+      render();
+    }
+    return;
+  }
+  if (!state.addingMode) {
+    const pos = canvasXY(e);
+    canvas.style.cursor = hitMarker(pos.x, pos.y) ? 'grab' : 'default';
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (isPanning) { isPanning = false; stage.classList.remove('panning'); }
+  if (state.draggingId) { state.draggingId = null; buildMarkersList(); }
+});
+
+canvas.addEventListener('dblclick', e => {
+  if (state.addingMode) return;
+  const hit = hitMarker(canvasXY(e).x, canvasXY(e).y);
+  if (hit) { state.selectedId = hit.id; openEditModal(hit); buildMarkersList(); render(); }
+});
+
+// ── ŁADOWANIE OBRAZÓW ─────────────────────────────────────────────────────────
+function loadImg(src) {
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error('Cannot load: ' + src));
+    i.src = src;
+  });
+}
+
+async function initImages() {
+  for (const map of BUILTIN_MAPS) {
+    try { 
+      const b64 = (typeof B64_IMAGES !== 'undefined') ? B64_IMAGES[map.src.split('/').pop()] : null;
+      mapImages[map.id] = await loadImg(b64 || map.src); 
+    }
+    catch(e) { console.warn(e.message); }
+  }
+  for (const [key, src] of Object.entries(MARKER_SRCS)) {
+    try { 
+      const b64 = (typeof B64_IMAGES !== 'undefined') ? B64_IMAGES[src.split('/').pop()] : null;
+      markerImgs[key] = await loadImg(b64 || src); 
+    }
+    catch(e) { console.warn(e.message); }
+  }
+  fitCanvas(); render(); buildMapGrid(); updateLabelPreview();
+}
+
+function fitCanvas() {
+  const img = mapImages[state.activeMapId];
+  if (!img) { canvas.width = 1000; canvas.height = 800; return; }
+  const r  = Math.min(3000 / img.naturalWidth, 3000 / img.naturalHeight);
+  canvas.width  = Math.round(img.naturalWidth  * r) + MAP_PADDING * 2;
+  canvas.height = Math.round(img.naturalHeight * r) + MAP_PADDING * 2;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function shadeHex(color, pct) {
+  let R = parseInt(color.slice(1,3),16);
+  let G = parseInt(color.slice(3,5),16);
+  let B = parseInt(color.slice(5,7),16);
+  R = Math.min(255, Math.max(0, Math.round(R * (100+pct) / 100)));
+  G = Math.min(255, Math.max(0, Math.round(G * (100+pct) / 100)));
+  B = Math.min(255, Math.max(0, Math.round(B * (100+pct) / 100)));
+  return '#' + [R,G,B].map(v => v.toString(16).padStart(2,'0')).join('');
+}
+
+function drawMap(c, w, h, img) {
+  const mapData = BUILTIN_MAPS.find(m => m.id === state.activeMapId) || (state.customMaps || []).find(m => m.id === state.activeMapId);
+  const extrudeScale = mapData?.extrudeScale || 1;
+  const extrudeDepth = Math.round(9 * extrudeScale);
+
+  const pal    = PALETTE[state.mapColor] || PALETTE.brand_green;
+  const darker = shadeHex(pal.c2, -50);
+  const lighter= shadeHex(pal.c1, 60);
+  const dw = w - MAP_PADDING*2, dh = h - MAP_PADDING*2;
+
+  // Top surface (colored)
+  const top = document.createElement('canvas'); top.width = w; top.height = h;
+  const tc  = top.getContext('2d');
+  tc.drawImage(img, MAP_PADDING, MAP_PADDING, dw, dh);
+  tc.globalCompositeOperation = 'source-in';
+  const grd = tc.createLinearGradient(0,0,w,h);
+  grd.addColorStop(0, shadeHex(pal.c1, 15));
+  grd.addColorStop(1, shadeHex(pal.c2, -15));
+  tc.fillStyle = grd; tc.fillRect(0,0,w,h);
+
+  // Outline
+  const outl = document.createElement('canvas'); outl.width = w; outl.height = h;
+  const oc = outl.getContext('2d');
+  const pos = [
+    [-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1],
+    [-2,0],[2,0],[0,-2],[0,2]
+  ];
+  pos.forEach(([dx,dy]) => oc.drawImage(img, MAP_PADDING+dx, MAP_PADDING+dy, dw, dh));
+  oc.globalCompositeOperation = 'source-in';
+  oc.fillStyle = lighter; oc.fillRect(0,0,w,h);
+
+  // Wall (3D extrusion)
+  const wall = document.createElement('canvas'); wall.width = w; wall.height = h;
+  const wc   = wall.getContext('2d');
+  wc.drawImage(outl, 0, 0);
+  wc.globalCompositeOperation = 'source-in';
+  wc.fillStyle = darker; wc.fillRect(0,0,w,h);
+
+  for (let i = 1; i <= extrudeDepth; i++) c.drawImage(wall, 0, i);
+  c.drawImage(outl, 0, 0);
+  c.drawImage(top, 0, 0);
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const img = mapImages[state.activeMapId];
+  if (img) {
+    drawMap(ctx, canvas.width, canvas.height, img);
+  } else {
+    ctx.fillStyle = '#8892b0'; ctx.font = '14px Inter,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Brak obrazu mapy — sprawdź folder images/', canvas.width/2, canvas.height/2);
+  }
+  const activeMarkers = state.markers.filter(m => m.mapId === state.activeMapId || !m.mapId);
+  const activeConns = state.connections.filter(c => {
+    return !!activeMarkers.find(m => m.id === c.fromId);
+  });
+  activeConns.forEach(c => drawConnection(ctx, c, activeMarkers));
+  activeMarkers.forEach(m => drawMarker(ctx, m, m.id === state.selectedId));
+}
+
+function drawConnection(c, conn, markersList = state.markers) {
+  const m1 = markersList.find(m => m.id === conn.fromId);
+  const m2 = markersList.find(m => m.id === conn.toId);
+  if (!m1 || !m2) return;
+
+  const isTextOnly1 = m1.labelPos === 'text_only';
+  const mImg1 = markerImgs[m1.markerType] || markerImgs.default;
+  let dw1 = 0, dh1 = 0;
+  if (!isTextOnly1) {
+    dw1 = m1.size * state.globalScale;
+    dh1 = dw1;
+    if (mImg1) dw1 = dh1 * ((mImg1.naturalWidth||mImg1.width)/(mImg1.naturalHeight||mImg1.height));
+  }
+
+  const isTextOnly2 = m2.labelPos === 'text_only';
+  const mImg2 = markerImgs[m2.markerType] || markerImgs.default;
+  let dw2 = 0, dh2 = 0;
+  if (!isTextOnly2) {
+    dw2 = m2.size * state.globalScale;
+    dh2 = dw2;
+    if (mImg2) dw2 = dh2 * ((mImg2.naturalWidth||mImg2.width)/(mImg2.naturalHeight||mImg2.height));
+  }
+
+  // Pin visual center is roughly at 65% of height from bottom
+  const cy1 = isTextOnly1 ? m1.y : m1.y - dh1 * 0.65;
+  const cy2 = isTextOnly2 ? m2.y : m2.y - dh2 * 0.65;
+  const angle = Math.atan2(cy2 - cy1, m2.x - m1.x);
+  const off1 = dw1 * 0.4;
+  const off2 = dw2 * 0.4;
+  
+  const sx = m1.x + Math.cos(angle) * off1;
+  const sy = cy1 + Math.sin(angle) * off1;
+  const ex = m2.x - Math.cos(angle) * off2;
+  const ey = cy2 - Math.sin(angle) * off2;
+
+  c.save();
+  c.beginPath();
+  c.moveTo(sx, sy);
+
+  if (conn.type === 'curve' || conn.type === 'curve_left' || conn.type === 'curve_right') {
+    const dx = ex - sx;
+    const dy = ey - sy;
+    // For backwards compatibility 'curve' means left
+    const factor = (conn.type === 'curve_right') ? -0.25 : 0.25;
+    const cx = sx + dx / 2 - dy * factor;
+    const cy = sy + dy / 2 + dx * factor;
+    c.quadraticCurveTo(cx, cy, ex, ey);
+  } else {
+    c.lineTo(ex, ey);
+  }
+  
+  const pal = PALETTE[conn.color] || PALETTE.brand_white;
+  c.strokeStyle = pal.c1;
+  c.lineWidth = conn.thickness;
+  c.lineCap = 'round';
+  if (conn.style === 'dashed') c.setLineDash([conn.thickness * 2, conn.thickness * 2]);
+  
+  c.shadowBlur = 4; c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowOffsetY = 2;
+  c.stroke();
+  c.restore();
+}
+
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y);
+  c.closePath();
+}
+
+function drawMarker(c, m, selected) {
+  const efSize = Math.round(m.size * state.globalScale);
+  const isTextOnly = m.labelPos === 'text_only';
+  const isMarkerOnly = m.labelPos === 'marker_only';
+  let dw = 0, dh = 0;
+
+  if (!isTextOnly) {
+    const mImg = markerImgs[m.markerType] || markerImgs.default;
+    dw = efSize; dh = efSize;
+    if (mImg) {
+      const aspect = (mImg.naturalWidth || mImg.width) / (mImg.naturalHeight || mImg.height);
+      dh = efSize; dw = Math.round(dh * aspect);
+
+      const off = document.createElement('canvas');
+      off.width = Math.max(1, dw); off.height = Math.max(1, dh);
+      const oc = off.getContext('2d');
+      oc.drawImage(mImg, 0, 0, dw, dh);
+      if (m.markerColor) {
+        oc.globalCompositeOperation = 'source-in';
+        const mp = PALETTE[m.markerColor] || PALETTE.brand_green;
+        const gr = oc.createLinearGradient(0, 0, dw, dh);
+        gr.addColorStop(0, mp.c1); gr.addColorStop(1, mp.c2);
+        oc.fillStyle = gr; oc.fillRect(0, 0, dw, dh);
+      }
+      if (selected) {
+        c.save(); c.shadowBlur = 22; c.shadowColor = 'rgba(74,222,128,0.9)';
+        c.drawImage(off, m.x - dw/2, m.y - dh, dw, dh);    c.restore();
+      }
+
+      c.save();
+      c.shadowBlur = 4; c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowOffsetX = 2; c.shadowOffsetY = 4;
+      c.drawImage(off, m.x - dw/2, m.y - dh);
+      c.restore();
+    } else {
+      const hs = efSize / 2;
+      c.beginPath(); c.arc(m.x, m.y - hs, hs * 0.7, 0, Math.PI * 2);
+      c.fillStyle = PALETTE[m.markerColor]?.c1 || PALETTE.brand_green.c1; c.fill();
+      if (selected) { c.lineWidth = 4; c.strokeStyle = '#4ade80'; c.stroke(); }
+    }
+  }
+
+  if (m.label && !isMarkerOnly) {
+    c.save();
+    const fz = Math.round((m.fontSize || state.fontSize || 34) * state.globalScale);
+    c.font = `bold ${fz}px Figtree,Arial,sans-serif`;
+    c.textBaseline = 'middle'; c.textAlign = 'center';
+    const text = m.label.toUpperCase();
+    const tw   = c.measureText(text).width;
+    const px   = fz * 0.6, py = fz * 0.38;
+    const bw   = tw + px * 2, bh = fz + py * 2, br = bh * 0.28;
+    const gap  = isTextOnly ? 0 : 12;
+    const isRight = m.labelPos === 'right';
+
+    let bx, by;
+    if (isTextOnly) {
+      bx = m.x - bw / 2;
+      by = m.y - bh / 2;
+    } else {
+      bx = isRight ? m.x + dw / 2 + gap : m.x - bw / 2;
+      by = isRight ? m.y - dh / 2 - bh / 2 : m.y + gap;
+    }
+    const textX = bx + bw / 2;
+
+    c.shadowBlur = 6; c.shadowColor = 'rgba(0,0,0,0.35)'; c.shadowOffsetX = 1; c.shadowOffsetY = 2;
+    roundRect(c, bx, by, bw, bh, br);
+    const bp = PALETTE[m.bgColor] || PALETTE.brand_green;
+    const bg = c.createLinearGradient(bx, by, bx + bw, by + bh);
+    bg.addColorStop(0, bp.c1); bg.addColorStop(1, bp.c2);
+    c.fillStyle = bg; c.fill();
+
+    c.shadowBlur = 0; c.shadowOffsetX = 0; c.shadowOffsetY = 0;
+    c.fillStyle = (m.bgColor === 'brand_white') ? '#0f172a' : '#ffffff';
+    c.fillText(text, textX, by + bh / 2);
+
+    if (selected) {
+      roundRect(c, bx - 2, by - 2, bw + 4, bh + 4, br + 2);
+      c.strokeStyle = 'rgba(74,222,128,0.9)'; c.lineWidth = 2.5; c.stroke();
+    }
+    c.restore();
+  }
+}
+
+function getMarkerBounds(m) {
+  const efSize = Math.round(m.size * state.globalScale);
+  const isTextOnly = m.labelPos === 'text_only';
+  const isMarkerOnly = m.labelPos === 'marker_only';
+  let dw = 0, dh = 0;
+  
+  if (!isTextOnly) {
+    const mImg = markerImgs[m.markerType] || markerImgs.default;
+    dw = efSize; dh = efSize;
+    if (mImg) {
+      dh = efSize; dw = Math.round(dh * ((mImg.naturalWidth||mImg.width)/(mImg.naturalHeight||mImg.height)));
+    }
+  }
+  
+  const fz = Math.round((m.fontSize || state.fontSize || 34) * state.globalScale);
+  const bh = fz + fz * 0.76;
+  const bw = fz * 8; // approximate label width
+  
+  if (isTextOnly) {
+    return { x1: m.x - bw/2, y1: m.y - bh/2, x2: m.x + bw/2, y2: m.y + bh/2 };
+  }
+  
+  const showLabel = m.label && !isMarkerOnly;
+  if (!showLabel) {
+    return { x1: m.x - dw/2, y1: m.y - dh, x2: m.x + dw/2, y2: m.y };
+  }
+  
+  if (m.labelPos === 'right') {
+    return { x1: m.x - dw/2, y1: m.y - dh, x2: m.x + dw/2 + 12 + bw, y2: m.y };
+  }
+  return { x1: m.x - dw/2, y1: m.y - dh, x2: m.x + dw/2, y2: m.y + 12 + bh };
+}
+
+function hitMarker(x, y) {
+  for (let i = state.markers.length-1; i >= 0; i--) {
+    const { x1,y1,x2,y2 } = getMarkerBounds(state.markers[i]);
+    if (x>=x1 && x<=x2 && y>=y1 && y<=y2) return state.markers[i];
+  }
+  return null;
+}
+
+// ── SIATKA MAP ────────────────────────────────────────────────────────────────
+function buildMapGrid() {
+  const grid = document.getElementById('mapGrid'); if (!grid) return;
+  grid.innerHTML = '';
+  
+  const categories = {};
+  BUILTIN_MAPS.forEach(map => {
+    if (!categories[map.category]) categories[map.category] = [];
+    categories[map.category].push(map);
+  });
+
+  const catOrder = ['Świat', 'Kraje', 'Wyspy Greckie'];
+
+  catOrder.forEach(cat => {
+    if (!categories[cat]) return;
+    
+    const catHeader = document.createElement('div');
+    catHeader.style.fontSize = '10px';
+    catHeader.style.fontWeight = '700';
+    catHeader.style.color = 'var(--text-muted)';
+    catHeader.style.margin = '10px 0 6px 4px';
+    catHeader.style.textTransform = 'uppercase';
+    catHeader.style.letterSpacing = '1px';
+    catHeader.textContent = cat;
+    grid.appendChild(catHeader);
+
+    categories[cat].forEach(map => {
+      const card = document.createElement('div');
+      card.className = 'map-card' + (map.id===state.activeMapId?' active':'');
+      card.dataset.id = map.id;
+      const img = document.createElement('img');
+      img.className='map-thumb'; img.alt=map.name;
+      const b64 = (typeof B64_IMAGES !== 'undefined') ? B64_IMAGES[map.src.split('/').pop()] : null;
+      img.src = mapImages[map.id]?.src || b64 || map.src;
+      img.onerror = () => { img.style.display='none'; };
+      const info = document.createElement('div'); info.className='map-card-info';
+      info.innerHTML = `<div class="map-card-name">${map.emoji} ${map.name}</div><div class="map-card-sub">${map.sub}</div>`;
+      const dot = document.createElement('div'); dot.className='active-dot';
+      card.append(img, info, dot);
+      card.addEventListener('click', () => selectMap(map.id));
+      grid.appendChild(card);
+    });
+  });
+}
+
+function selectMap(id) {
+  state.activeMapId = id;
+  cancelAddingMode();
+  zoomLevel=1; panX=0; panY=0; updateTransform();
+  document.querySelectorAll('.map-card').forEach(c => c.classList.toggle('active', c.dataset.id===id));
+  fitCanvas(); render(); closeAutocomplete();
+}
+
+// ── AUTOCOMPLETE ──────────────────────────────────────────────────────────────
+const labelInput = document.getElementById('markerLabel');
+const autoList   = document.getElementById('autocompleteList');
+let acHighlight  = -1;
+
+if (labelInput) {
+  labelInput.addEventListener('input', () => {
+    updateLabelPreview();
+    const q = labelInput.value.trim().toLowerCase();
+    if (!q) { closeAutocomplete(); return; }
+    const hits = (CITY_DB[state.activeMapId]||[]).filter(c=>c.name.toLowerCase().startsWith(q)).slice(0,8);
+    if (!hits.length) { closeAutocomplete(); return; }
+    showAutocomplete(hits);
+  });
+  labelInput.addEventListener('keydown', e => {
+    const items = autoList.querySelectorAll('.autocomplete-item');
+    if (e.key==='ArrowDown')  { acHighlight=Math.min(acHighlight+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('active',i===acHighlight)); e.preventDefault(); }
+    else if (e.key==='ArrowUp')   { acHighlight=Math.max(acHighlight-1,0); items.forEach((el,i)=>el.classList.toggle('active',i===acHighlight)); e.preventDefault(); }
+    else if (e.key==='Enter' && acHighlight>=0) { items[acHighlight]?.click(); e.preventDefault(); }
+    else if (e.key==='Escape') closeAutocomplete();
+  });
+}
+
+function showAutocomplete(cities) {
+  acHighlight=-1; autoList.innerHTML='';
+  const icons = { wyspa:'🏝️', miasto:'🏙️', lotnisko:'✈️', port:'⚓', region:'🗾', miejsce:'📍' };
+  cities.forEach(city => {
+    const item = document.createElement('div'); item.className='autocomplete-item';
+    item.innerHTML = `<span>${icons[city.type]||'📍'}</span><span class="city-name">${city.name}</span><span class="city-type">${city.type}</span>`;
+    item.addEventListener('mousedown', e => { e.preventDefault(); selectCity(city); });
+    autoList.appendChild(item);
+  });
+  autoList.style.display='block';
+}
+
+function closeAutocomplete() { if (autoList) autoList.style.display='none'; acHighlight=-1; }
+document.addEventListener('click', e => { if (!e.target.closest('#labelInputRow')) closeAutocomplete(); });
+
+document.getElementById('showAllCitiesBtn')?.addEventListener('click', e => {
+  e.preventDefault();
+  const cities = CITY_DB[state.activeMapId]||[];
+  if (!cities.length) return;
+  if (autoList.style.display==='block') closeAutocomplete();
+  else { showAutocomplete(cities); labelInput?.focus(); }
+});
+
+function selectCity(city) {
+  if (labelInput) labelInput.value = city.name;
+  updateLabelPreview(); closeAutocomplete();
+  const dw = canvas.width  - MAP_PADDING*2;
+  const dh = canvas.height - MAP_PADDING*2;
+  const x  = Math.round(MAP_PADDING + city.rx * dw);
+  const y  = Math.round(MAP_PADDING + city.ry * dh);
+  if (city.type==='lotnisko'||city.type==='port') {
+    state.markerType = city.type;
+    document.querySelectorAll('#markerTypeOptions .font-opt').forEach(o=>o.classList.toggle('selected', o.dataset.type===city.type));
+  } else {
+    state.markerType='default';
+    document.querySelectorAll('#markerTypeOptions .font-opt').forEach(o=>o.classList.toggle('selected', o.dataset.type==='default'));
+  }
+  placeMarker(x, y, city.name);
+}
+
+// ── PODGLĄD ETYKIETY ──────────────────────────────────────────────────────────
+function updateLabelPreview() {
+  const lbl   = labelInput?.value.trim() || 'PODPIS';
+  const pc    = document.getElementById('previewCanvas');
+  
+  if (pc) {
+    const ctx = pc.getContext('2d');
+    ctx.clearRect(0,0,pc.width,pc.height);
+    
+    let mx = pc.width / 2;
+    let my = 125;
+    if (state.labelPos === 'text_only' || state.labelPos === 'marker_only') {
+      my = 90; // center it vertically in preview canvas
+    } else if (state.labelPos === 'bottom') {
+      my = 110;
+    } else {
+      mx = 45;
+    }
+    
+    const mockMarker = {
+      x: mx,
+      y: my,
+      label: lbl,
+      size: 90, // fixed preview size
+      bgColor: state.bgColor,
+      fontSize: 24, // fixed preview font
+      markerType: state.markerType,
+      markerColor: state.markerColor,
+      labelPos: state.labelPos
+    };
+    
+    const oldScale = state.globalScale;
+    state.globalScale = 1;
+    drawMarker(ctx, mockMarker, false);
+    state.globalScale = oldScale;
+  }
+}
+
+// ── ZAKŁADKI ──────────────────────────────────────────────────────────────────
+document.getElementById('sidebarTabs')?.addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn'); if (!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab)?.classList.add('active');
+});
+
+// ── KOLOR MAPY ────────────────────────────────────────────────────────────────
+document.getElementById('mapColorRow')?.addEventListener('click', e => {
+  const sw = e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#mapColorRow .color-swatch').forEach(s=>s.classList.remove('selected'));
+  sw.classList.add('selected'); state.mapColor=sw.dataset.color; render();
+});
+
+// ── KOLOR IKONY ───────────────────────────────────────────────────────────────
+document.getElementById('colorRow')?.addEventListener('click', e => {
+  const sw = e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#colorRow .color-swatch').forEach(s=>s.classList.remove('selected'));
+  sw.classList.add('selected'); state.markerColor = sw.dataset.color; updateLabelPreview();
+});
+
+// ── KOLOR TŁA PODPISU ─────────────────────────────────────────────────────────
+document.getElementById('textColorRow')?.addEventListener('click', e => {
+  const sw = e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#textColorRow .color-swatch').forEach(s=>s.classList.remove('selected'));
+  sw.classList.add('selected'); state.bgColor = sw.dataset.color; updateLabelPreview();
+});
+
+// ── POŁĄCZENIA - KONTROLKI UI ──────────────────────────────────────────────────
+document.getElementById('connTypeOptions')?.addEventListener('click', e => {
+  const opt = e.target.closest('.font-opt'); if (!opt) return;
+  document.querySelectorAll('#connTypeOptions .font-opt').forEach(o=>o.classList.remove('selected'));
+  opt.classList.add('selected'); state.connType = opt.dataset.type;
+});
+document.getElementById('connStyleOptions')?.addEventListener('click', e => {
+  const opt = e.target.closest('.font-opt'); if (!opt) return;
+  document.querySelectorAll('#connStyleOptions .font-opt').forEach(o=>o.classList.remove('selected'));
+  opt.classList.add('selected'); state.connStyle = opt.dataset.style;
+});
+document.getElementById('connColorRow')?.addEventListener('click', e => {
+  const sw = e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#connColorRow .color-swatch').forEach(s=>s.classList.remove('selected'));
+  sw.classList.add('selected'); state.connColor = sw.dataset.color;
+});
+document.getElementById('connThickness')?.addEventListener('input', e => {
+  state.connThickness = +e.target.value;
+  document.getElementById('connThicknessVal').textContent = state.connThickness + 'px';
+});
+
+document.getElementById('addConnBtn')?.addEventListener('click', () => {
+  const fromId = document.getElementById('connFrom').value;
+  const toId = document.getElementById('connTo').value;
+  if (!fromId || !toId) { toast('Wybierz oba znaczniki!', 'error'); return; }
+  if (fromId === toId) { toast('Nie można połączyć znacznika ze sobą samym', 'error'); return; }
+  
+  saveState();
+  state.connections.push({
+    id: 'c_' + Date.now(),
+    fromId,
+    toId,
+    type: state.connType,
+    style: state.connStyle,
+    color: state.connColor,
+    thickness: state.connThickness
+  });
+  buildConnsList(); render(); toast('Dodano połączenie', 'success');
+});
+
+// ── TYP IKONY ─────────────────────────────────────────────────────────────────
+document.getElementById('markerTypeOptions')?.addEventListener('click', e => {
+  const opt = e.target.closest('.font-opt'); if (!opt) return;
+  document.querySelectorAll('#markerTypeOptions .font-opt').forEach(o=>o.classList.remove('selected'));
+  opt.classList.add('selected'); state.markerType = opt.dataset.type; updateLabelPreview();
+});
+
+// ── POZYCJA PODPISU ───────────────────────────────────────────────────────────
+document.getElementById('labelPosOptions')?.addEventListener('click', e => {
+  const opt = e.target.closest('.font-opt'); if (!opt) return;
+  document.querySelectorAll('#labelPosOptions .font-opt').forEach(o=>o.classList.remove('selected'));
+  opt.classList.add('selected'); state.labelPos = opt.dataset.pos; updateLabelPreview();
+});
+
+// ── ROZMIAR IKONY ─────────────────────────────────────────────────────────────
+document.getElementById('markerSize')?.addEventListener('input', e => {
+  state.markerSize=+e.target.value;
+  document.getElementById('markerSizeVal').textContent = state.markerSize+'px';
+  updateLabelPreview();
+});
+
+// ── GLOBALNY SUWAK SKALI ──────────────────────────────────────────────────────
+document.getElementById('globalScaleSlider')?.addEventListener('input', e => {
+  state.globalScale = +e.target.value / 100;
+  document.getElementById('globalScaleVal').textContent = e.target.value+'%';
+  render();
+});
+
+// ── PRZYCISK DODAJ ────────────────────────────────────────────────────────────
+const addBtn = document.getElementById('addMarkerBtn');
+if (addBtn) {
+  addBtn.addEventListener('click', () => {
+    state.addingMode = !state.addingMode;
+    if (state.addingMode) {
+      addBtn.textContent='✕ Anuluj'; addBtn.className='btn btn-cancel';
+      canvas.classList.add('adding');
+      document.getElementById('modeIndicator').classList.add('visible');
+    } else {
+      cancelAddingMode();
+    }
+  });
+}
+
+function cancelAddingMode() {
+  state.addingMode=false;
+  if (addBtn) { addBtn.innerHTML='📍 Dodaj znacznik na mapie'; addBtn.className='btn btn-primary'; addBtn.style.cssText='width:100%;margin-top:4px;'; }
+  canvas.classList.remove('adding');
+  canvas.style.cursor='default';
+  document.getElementById('modeIndicator')?.classList.remove('visible');
+}
+
+// ── USUŃ WSZYSTKIE ────────────────────────────────────────────────────────────
+document.getElementById('clearAllBtn')?.addEventListener('click', () => {
+  if (!state.markers.length) return;
+  if (confirm('Usunąć wszystkie znaczniki?')) {
+    saveState(); state.markers=[]; state.selectedId=null;
+    buildMarkersList(); render(); toast('Usunięto wszystkie znaczniki','success');
+  }
+});
+
+// ── DODAWANIE / USUWANIE ZNACZNIKÓW ──────────────────────────────────────────
+function placeMarker(x, y, label) {
+  const id = 'm_' + Date.now();
+  saveState();
+  state.markers.push({ id, mapId: state.activeMapId, x, y, label: label||'', size: state.markerSize, bgColor: state.bgColor, fontSize: state.fontSize, markerType: state.markerType, markerColor: state.markerColor, labelPos: state.labelPos });
+  state.selectedId = id;
+  cancelAddingMode(); buildMarkersList(); updateConnDropdowns(); render();
+  toast(`Dodano: "${label||'(bez podpisu)'}"`, 'success');
+}
+
+function deleteMarker(id) {
+  saveState();
+  state.markers = state.markers.filter(m=>m.id!==id);
+  state.connections = state.connections.filter(c=>c.fromId!==id && c.toId!==id);
+  if (state.selectedId===id) state.selectedId=null;
+  closeEditModal(); buildMarkersList(); updateConnDropdowns(); buildConnsList(); render();
+  toast('Znacznik usunięty','success');
+}
+
+// ── MODAL EDYCJI ──────────────────────────────────────────────────────────────
+function openEditModal(m) {
+  document.getElementById('editLabel').value = m.label||'';
+  document.querySelectorAll('#editMarkerTypeOptions .font-opt').forEach(o=>o.classList.toggle('selected', o.dataset.type===(m.markerType||'default')));
+  document.querySelectorAll('#editMarkerColorRow .color-swatch').forEach(s=>s.classList.toggle('selected', s.dataset.color===(m.markerColor||'brand_green')));
+  document.querySelectorAll('#editTextColorRow .color-swatch').forEach(s=>s.classList.toggle('selected', s.dataset.color===(m.bgColor||'brand_green')));
+  document.getElementById('editMarkerSize').value = m.size||110;
+  document.getElementById('editMarkerSizeVal').textContent = (m.size||110)+'px';
+  const lp = m.labelPos || 'bottom';
+  document.querySelectorAll('#editLabelPosOptions .font-opt').forEach(o=>o.classList.toggle('selected', o.dataset.pos===lp));
+  document.getElementById('editModal').classList.add('visible');
+}
+
+function closeEditModal() { document.getElementById('editModal').classList.remove('visible'); }
+
+document.getElementById('editDeleteBtn').addEventListener('click', () => { if (state.selectedId) deleteMarker(state.selectedId); });
+document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+document.getElementById('editMarkerTypeOptions').addEventListener('click', e => {
+  const opt=e.target.closest('.font-opt'); if (!opt) return;
+  document.querySelectorAll('#editMarkerTypeOptions .font-opt').forEach(o=>o.classList.remove('selected'));
+  opt.classList.add('selected');
+});
+document.getElementById('editMarkerColorRow').addEventListener('click', e => {
+  const sw=e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#editMarkerColorRow .color-swatch').forEach(s=>s.classList.remove('selected'));
+  sw.classList.add('selected');
+});
+document.getElementById('editTextColorRow').addEventListener('click', e => {
+  const sw=e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#editTextColorRow .color-swatch').forEach(s=>s.classList.remove('selected'));
+  sw.classList.add('selected');
+});
+document.getElementById('editMarkerSize').addEventListener('input', e => {
+  document.getElementById('editMarkerSizeVal').textContent = e.target.value+'px';
+});
+document.getElementById('editLabelPosOptions').addEventListener('click', e => {
+  const opt = e.target.closest('.font-opt'); if (!opt) return;
+  document.querySelectorAll('#editLabelPosOptions .font-opt').forEach(o=>o.classList.remove('selected'));
+  opt.classList.add('selected');
+});
+document.getElementById('editSaveBtn').addEventListener('click', () => {
+  const m = state.markers.find(m=>m.id===state.selectedId);
+  if (m) {
+    m.label = document.getElementById('editLabel').value.trim();
+    const to = document.querySelector('#editMarkerTypeOptions .font-opt.selected');
+    if (to) m.markerType = to.dataset.type;
+    const co = document.querySelector('#editMarkerColorRow .color-swatch.selected');
+    if (co) { m.markerColor = co.dataset.color; }
+    const tc = document.querySelector('#editTextColorRow .color-swatch.selected');
+    if (tc) m.bgColor = tc.dataset.color;
+    const lp = document.querySelector('#editLabelPosOptions .font-opt.selected');
+    if (lp) m.labelPos = lp.dataset.pos;
+    m.size     = +document.getElementById('editMarkerSize').value;
+    m.fontSize = Math.round(m.size * (34/110));
+    buildMarkersList(); render(); toast('Zapisano','success');
+  }
+  closeEditModal();
+});
+document.getElementById('editModal').addEventListener('click', e=>{ if (e.target===document.getElementById('editModal')) closeEditModal(); });
+document.getElementById('editLabel').addEventListener('keydown', e=>{ if (e.key==='Enter') document.getElementById('editSaveBtn').click(); if (e.key==='Escape') closeEditModal(); });
+
+// ── LISTA ZNACZNIKÓW ──────────────────────────────────────────────────────────
+function buildMarkersList() {
+  const list = document.getElementById('markersList');
+  if (!list) return;
+  
+  const activeMarkers = state.markers.filter(m => m.mapId === state.activeMapId || !m.mapId);
+  if (!activeMarkers.length) { list.innerHTML='<div class="empty-state">Brak znaczników · dodaj pierwszy powyżej</div>'; return; }
+  
+  list.innerHTML='';
+  activeMarkers.forEach(m => {
+    const item=document.createElement('div');
+    item.className='marker-item'+(state.selectedId===m.id?' selected':'');
+    const dot=document.createElement('div'); dot.className='marker-dot';
+    const p=PALETTE[m.bgColor]||PALETTE.brand_green;
+    dot.style.background=`linear-gradient(135deg,${p.c1},${p.c2})`;
+    const lbl=document.createElement('div'); lbl.className='marker-item-label'; lbl.textContent=m.label||'(bez podpisu)';
+    const del=document.createElement('button'); del.className='marker-delete-btn'; del.textContent='×'; del.title='Usuń znacznik';
+    del.addEventListener('click', e=>{ e.stopPropagation(); deleteMarker(m.id); });
+    item.append(dot,lbl,del);
+    item.addEventListener('click', ()=>{ state.selectedId=m.id; buildMarkersList(); render(); openEditModal(m); });
+    list.appendChild(item);
+  });
+}
+
+// ── LISTA POŁĄCZEŃ ────────────────────────────────────────────────────────────
+function updateConnDropdowns() {
+  const cFrom = document.getElementById('connFrom');
+  const cTo = document.getElementById('connTo');
+  if (!cFrom || !cTo) return;
+  
+  const savedFrom = cFrom.value;
+  const savedTo = cTo.value;
+  
+  const activeMarkers = state.markers.filter(m => m.mapId === state.activeMapId || !m.mapId);
+  
+  let html = '<option value="">-- Wybierz znacznik --</option>';
+  activeMarkers.forEach(m => {
+    html += `<option value="${m.id}">${m.label || '(bez podpisu)'}</option>`;
+  });
+  
+  cFrom.innerHTML = html;
+  cTo.innerHTML = html;
+  
+  if (activeMarkers.find(m => m.id === savedFrom)) cFrom.value = savedFrom;
+  if (activeMarkers.find(m => m.id === savedTo)) cTo.value = savedTo;
+}
+
+function buildConnsList() {
+  const list = document.getElementById('connsList');
+  if (!list) return;
+  
+  const activeMarkers = state.markers.filter(m => m.mapId === state.activeMapId || !m.mapId);
+  const activeConns = state.connections.filter(c => {
+    return !!activeMarkers.find(m => m.id === c.fromId);
+  });
+  
+  if (!activeConns.length) { list.innerHTML='<div class="empty-state">Brak połączeń</div>'; return; }
+  
+  list.innerHTML='';
+  activeConns.forEach(c => {
+    const item=document.createElement('div');
+    item.className='marker-item';
+    const m1 = state.markers.find(m=>m.id===c.fromId);
+    const m2 = state.markers.find(m=>m.id===c.toId);
+    const name1 = m1 ? (m1.label||'Znacznik') : '?';
+    const name2 = m2 ? (m2.label||'Znacznik') : '?';
+    
+    const dot=document.createElement('div'); dot.className='marker-dot';
+    const p=PALETTE[c.color]||PALETTE.brand_white;
+    dot.style.background=`linear-gradient(135deg,${p.c1},${p.c2})`;
+    
+    const lbl=document.createElement('div'); lbl.className='marker-item-label'; lbl.textContent=`${name1} → ${name2}`;
+    const edit=document.createElement('button'); edit.className='marker-delete-btn'; edit.textContent='✏️'; edit.title='Edytuj połączenie'; edit.style.marginRight='4px';
+    edit.addEventListener('click', e => { e.stopPropagation(); openEditConnModal(c); });
+
+    const del=document.createElement('button'); del.className='marker-delete-btn'; del.textContent='×'; del.title='Usuń połączenie';
+    del.addEventListener('click', e=>{ 
+      e.stopPropagation(); 
+      saveState(); 
+      state.connections = state.connections.filter(x=>x.id!==c.id); 
+      buildConnsList(); render(); toast('Usunięto połączenie','success');
+    });
+    item.append(dot, lbl, edit, del);
+    list.appendChild(item);
+  });
+}
+
+// ── EDYCJA POŁĄCZEŃ ───────────────────────────────────────────────────────────
+let editConnId = null;
+
+function openEditConnModal(c) {
+  editConnId = c.id;
+  document.querySelectorAll('#editConnTypeOptions .font-opt').forEach(o=>o.classList.toggle('selected', o.dataset.type===c.type));
+  document.querySelectorAll('#editConnStyleOptions .font-opt').forEach(o=>o.classList.toggle('selected', o.dataset.style===c.style));
+  document.querySelectorAll('#editConnColorRow .color-swatch').forEach(s=>s.classList.toggle('selected', s.dataset.color===c.color));
+  document.getElementById('editConnThickness').value = c.thickness;
+  document.getElementById('editConnThicknessVal').textContent = c.thickness + 'px';
+  document.getElementById('editConnModal').classList.add('visible');
+}
+
+function closeEditConnModal() {
+  document.getElementById('editConnModal').classList.remove('visible');
+  editConnId = null;
+}
+
+document.getElementById('editConnCancelBtn')?.addEventListener('click', closeEditConnModal);
+document.getElementById('editConnDeleteBtn')?.addEventListener('click', () => {
+  if (editConnId) {
+    saveState();
+    state.connections = state.connections.filter(c => c.id !== editConnId);
+    closeEditConnModal(); buildConnsList(); render(); toast('Usunięto połączenie', 'success');
+  }
+});
+document.getElementById('editConnSaveBtn')?.addEventListener('click', () => {
+  if (editConnId) {
+    const c = state.connections.find(x => x.id === editConnId);
+    if (c) {
+      saveState();
+      c.type = document.querySelector('#editConnTypeOptions .font-opt.selected')?.dataset.type || c.type;
+      c.style = document.querySelector('#editConnStyleOptions .font-opt.selected')?.dataset.style || c.style;
+      c.color = document.querySelector('#editConnColorRow .color-swatch.selected')?.dataset.color || c.color;
+      c.thickness = +document.getElementById('editConnThickness').value;
+      closeEditConnModal(); buildConnsList(); render(); toast('Zapisano połączenie', 'success');
+    }
+  }
+});
+
+document.getElementById('editConnTypeOptions')?.addEventListener('click', e => {
+  const opt = e.target.closest('.font-opt'); if (!opt) return;
+  document.querySelectorAll('#editConnTypeOptions .font-opt').forEach(o=>o.classList.remove('selected'));
+  opt.classList.add('selected');
+});
+document.getElementById('editConnStyleOptions')?.addEventListener('click', e => {
+  const opt = e.target.closest('.font-opt'); if (!opt) return;
+  document.querySelectorAll('#editConnStyleOptions .font-opt').forEach(o=>o.classList.remove('selected'));
+  opt.classList.add('selected');
+});
+document.getElementById('editConnColorRow')?.addEventListener('click', e => {
+  const sw = e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#editConnColorRow .color-swatch').forEach(s=>s.classList.remove('selected'));
+  sw.classList.add('selected');
+});
+document.getElementById('editConnThickness')?.addEventListener('input', e => {
+  document.getElementById('editConnThicknessVal').textContent = e.target.value + 'px';
+});
+
+// ── GLOBAL STYLES (Zastosuj do wszystkich) ────────────────────────────────────
+document.getElementById('applyStyleToAllMarkersBtn')?.addEventListener('click', () => {
+  saveState();
+  let count = 0;
+  state.markers.forEach(m => {
+    if (m.mapId === state.activeMapId || !m.mapId) {
+      m.markerType = state.markerType;
+      m.markerColor = state.markerColor;
+      m.bgColor = state.bgColor;
+      m.labelPos = state.labelPos;
+      m.size = state.markerSize;
+      m.fontSize = state.fontSize;
+      count++;
+    }
+  });
+  buildMarkersList(); updateLabelPreview(); render(); 
+  toast(`Zastosowano styl do ${count} znaczników`, 'success');
+});
+
+document.getElementById('applyStyleToAllConnsBtn')?.addEventListener('click', () => {
+  saveState();
+  let count = 0;
+  const activeMarkers = state.markers.filter(m => m.mapId === state.activeMapId || !m.mapId);
+  state.connections.forEach(c => {
+    if (activeMarkers.find(m => m.id === c.fromId)) {
+      c.type = state.connType;
+      c.style = state.connStyle;
+      c.color = state.connColor;
+      c.thickness = state.connThickness;
+      count++;
+    }
+  });
+  buildConnsList(); render(); 
+  toast(`Zastosowano styl do ${count} połączeń`, 'success');
+});
+
+// ── EKSPORT PNG ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.exportBtn').forEach(b => b.addEventListener('click', exportPNG));
+
+function exportPNG() {
+  // Render to main canvas without selection highlight, then download it
+  const saved = state.selectedId;
+  state.selectedId = null;
+  render();
+
+  const mapName = (BUILTIN_MAPS.find(m => m.id === state.activeMapId) || { name: 'mapa' }).name;
+  const fname   = `mapka_${mapName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.png`;
+
+  try {
+    canvas.toBlob(blob => {
+      if (!blob) { toast('Błąd: nie można wyeksportować', 'error'); return; }
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.download = fname; a.href = url;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast(`Eksportowano: ${fname}`, 'success');
+    }, 'image/png');
+  } catch(err) {
+    toast('Błąd eksportu: ' + err.message, 'error');
+  } finally {
+    state.selectedId = saved;
+    render();
+  }
+}
+
+// ── SKRÓTY KLAWISZOWE ─────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') { if (state.addingMode) cancelAddingMode(); closeEditModal(); closeAutocomplete(); }
+  if ((e.key==='Delete'||e.key==='Backspace') && state.selectedId) {
+    const tag=document.activeElement.tagName;
+    if (tag!=='INPUT'&&tag!=='TEXTAREA') deleteMarker(state.selectedId);
+  }
+});
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg, type='success') {
+  const tc=document.getElementById('toastContainer');
+  const t=document.createElement('div'); t.className=`toast ${type}`;
+  t.innerHTML=`<span>${type==='success'?'✅':'❌'}</span> ${msg}`;
+  tc.appendChild(t); setTimeout(()=>t.remove(),3100);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+updateLabelPreview();
+buildMarkersList();
+updateConnDropdowns();
+buildConnsList();
+initImages();
+</script>
+</body>
+</html>
