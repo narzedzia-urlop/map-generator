@@ -29,7 +29,7 @@
       --shadow: 0 4px 24px rgba(0,0,0,0.4);
     }
 
-    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; display:flex; flex-direction:column; margin:0; }
 
     /* HEADER */
     header { padding:12px 22px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; box-shadow:0 2px 16px rgba(0,0,0,0.3); }
@@ -144,7 +144,7 @@
     .canvas-stage {
       position:relative; border-radius:8px; border:1px solid var(--border);
       background:var(--bg);
-      height:84vh; width:100%;
+      height:100%; width:100%;
       overflow:hidden;
       display:flex; align-items:center; justify-content:center;
     }
@@ -193,8 +193,8 @@
       border-radius: 18px;
       box-shadow: 0 24px 64px rgba(0,0,0,0.6);
       padding: 24px;
-      width: min(92vw, 900px);
-      max-height: 92vh;
+      width: min(96vw, 1400px);
+      height: 96vh;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -214,15 +214,12 @@
       min-height: 0;
     }
     .export-preview-wrap {
-      flex: 1;
       position: relative;
       border-radius: 10px;
       overflow: hidden;
       border: 1px solid var(--border);
       background: #0a0a12;
       cursor: crosshair;
-      min-height: 300px;
-      max-height: 60vh;
     }
     #exportPreviewCanvas {
       width: 100%;
@@ -369,9 +366,15 @@
       <div class="sidebar-section">
         <span class="sidebar-label">Otoczenie</span>
         <button class="btn btn-outline" id="toggleLandsBtn" style="width: 100%; margin-bottom: 5px;">Pokaż lądy</button>
-        <div class="input-row" style="flex-direction:row; gap:5px; margin-top:5px; display:none;" id="envColorSelector">
-          <button class="btn btn-outline active" style="flex:1" data-envcolor="#475569">Ciemny</button>
-          <button class="btn btn-outline" style="flex:1" data-envcolor="#cbd5e1">Jasny</button>
+        <div class="input-row" style="margin-top:5px; display:none;" id="envColorSelector">
+          <span class="input-label" style="margin-bottom:2px;">Odcień szarości lądów:</span>
+          <div class="color-row">
+            <div class="color-swatch" data-envcolor="#1e293b" style="background:#1e293b" title="Bardzo ciemny"></div>
+            <div class="color-swatch selected" data-envcolor="#475569" style="background:#475569" title="Ciemny"></div>
+            <div class="color-swatch" data-envcolor="#94a3b8" style="background:#94a3b8" title="Średni"></div>
+            <div class="color-swatch" data-envcolor="#cbd5e1" style="background:#cbd5e1" title="Jasny"></div>
+            <div class="color-swatch" data-envcolor="#f1f5f9" style="background:#f1f5f9" title="Bardzo jasny"></div>
+          </div>
         </div>
       </div>
 
@@ -382,15 +385,30 @@
           <button class="btn btn-outline" id="highlightCountryBtn" style="padding:0 12px; flex-shrink:0;">+</button>
         </div>
         <div style="margin-top:6px;">
-          <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px;">
-            <span class="sidebar-label" style="margin:0; font-size:11px;">Kolor:</span>
-            <div id="highlightColorRow" style="display:flex; gap:5px; flex-wrap:wrap;">
-              <div class="color-swatch" data-hcolor="brand_navy" style="background:linear-gradient(135deg,#1a4078,#02265C);width:22px;height:22px;" title="Granatowy"></div>
-              <div class="color-swatch selected" data-hcolor="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed);width:22px;height:22px;" title="Fioletowy"></div>
-              <div class="color-swatch" data-hcolor="red" style="background:linear-gradient(135deg,#f87171,#dc2626);width:22px;height:22px;" title="Czerwony"></div>
-              <div class="color-swatch" data-hcolor="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c);width:22px;height:22px;" title="Pomarańczowy"></div>
-              <div class="color-swatch" data-hcolor="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04);width:22px;height:22px;" title="Żółty"></div>
-              <div class="color-swatch" data-hcolor="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D);width:22px;height:22px;" title="Zielony"></div>
+          <div style="margin-bottom:6px;">
+            <span class="sidebar-label" style="margin:0 0 4px 0; font-size:11px;">Kolor podświetlenia:</span>
+            <div id="highlightColorRow">
+              <div class="color-row">
+                <div class="color-swatch" data-hcolor="brand_green_light" style="background:linear-gradient(135deg,#86efac,#4ade80)" title="Jasny Zielony"></div>
+                <div class="color-swatch" data-hcolor="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D)" title="Zielony"></div>
+                <div class="color-swatch" data-hcolor="brand_green_dark" style="background:linear-gradient(135deg,#166534,#064e3b)" title="Ciemny Zielony"></div>
+                <div class="color-swatch" data-hcolor="brand_navy" style="background:linear-gradient(135deg,#1a4078,#02265C)" title="Granatowy"></div>
+                <div class="color-swatch" data-hcolor="brand_white" style="background:linear-gradient(135deg,#ffffff,#cbd5e1)" title="Biały"></div>
+              </div>
+              <details class="sidebar-details" style="margin-top:8px;">
+                <summary>Kolory niestandardowe</summary>
+                <div class="details-content">
+                  <div class="color-row">
+                    <div class="color-swatch" data-hcolor="blue"   style="background:linear-gradient(135deg,#60a5fa,#2563eb)" title="Niebieski"></div>
+                    <div class="color-swatch" data-hcolor="red"    style="background:linear-gradient(135deg,#f87171,#dc2626)" title="Czerwony"></div>
+                    <div class="color-swatch" data-hcolor="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c)" title="Pomarańczowy"></div>
+                    <div class="color-swatch" data-hcolor="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04)" title="Żółty"></div>
+                    <div class="color-swatch selected" data-hcolor="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed)" title="Fioletowy"></div>
+                    <div class="color-swatch" data-hcolor="gray"   style="background:linear-gradient(135deg,#94a3b8,#475569)" title="Szary"></div>
+                    <div class="color-swatch" data-hcolor="brand_black" style="background:linear-gradient(135deg,#27272a,#09090b)" title="Czarny"></div>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
           <div id="highlightedCountriesList" style="display:flex; flex-direction:column; gap:4px; max-height:150px; overflow-y:auto;"></div>
@@ -1069,6 +1087,7 @@ async function initImages() {
     style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
     center: [0, 20],
     zoom: 1.5,
+    renderWorldCopies: false,
     preserveDrawingBuffer: true,
     attributionControl: false
   });
@@ -1543,10 +1562,10 @@ document.getElementById('toggleLandsBtn')?.addEventListener('click', async (e) =
 });
 
 document.getElementById('envColorSelector')?.addEventListener('click', (e) => {
-  if (e.target.tagName !== 'BUTTON') return;
-  document.querySelectorAll('#envColorSelector button').forEach(b => b.classList.remove('active'));
-  e.target.classList.add('active');
-  state.envColor = e.target.dataset.envcolor;
+  const sw = e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#envColorSelector .color-swatch').forEach(s => s.classList.remove('selected'));
+  sw.classList.add('selected');
+  state.envColor = sw.dataset.envcolor;
   updateGlobalLandsLayer();
 });
 
@@ -1785,13 +1804,13 @@ function updateLabelPreview() {
     ctx.clearRect(0,0,pc.width,pc.height);
     
     let mx = pc.width / 2;
-    let my = 125;
+    let my = 90;
     if (state.labelPos === 'text_only' || state.labelPos === 'marker_only') {
       my = 90; // center it vertically in preview canvas
     } else if (state.labelPos === 'bottom') {
-      my = 110;
+      my = 65;
     } else {
-      mx = 45;
+      mx = 80;
     }
     
     const mockMarker = {
@@ -2231,13 +2250,47 @@ let lassoPolygons = [];
 let lassoDrawing = false;
 let currentLasso = [];
 
+let expZoom = 1;
+let expPanX = 0;
+let expPanY = 0;
+let expTool = 'lasso';
+let isPanningExp = false;
+let panStartX = 0;
+let panStartY = 0;
+
+function updateExpTransform() {
+  const inner = document.getElementById('expPreviewInner');
+  if (inner) inner.style.transform = `translate(${expPanX}px, ${expPanY}px) scale(${expZoom})`;
+}
+
 document.querySelectorAll('.exportBtn').forEach(b => b.addEventListener('click', openExportModal));
+
+function fitExportPreview() {
+  const availBox = document.getElementById('expAvailSpace');
+  if (!availBox) return;
+  const srcW = canvas.width, srcH = canvas.height;
+  if (!srcW || !srcH) return;
+  const scale = Math.min(availBox.clientWidth / srcW, availBox.clientHeight / srcH);
+  const wrap = document.getElementById('expPreviewWrap');
+  wrap.style.width = (srcW * scale) + 'px';
+  wrap.style.height = (srcH * scale) + 'px';
+  wrap.style.flex = 'none';
+  updateCropUI(); 
+}
+
+const expResizeObs = new ResizeObserver(() => {
+  if (document.getElementById('exportModal').classList.contains('visible')) {
+    fitExportPreview();
+  }
+});
 
 function openExportModal() {
   cropBox = { x:0, y:0, w:1, h:1 };
   lassoPolygons = [];
   currentLasso = [];
   lassoDrawing = false;
+  expZoom = 1; expPanX = 0; expPanY = 0;
+  updateExpTransform();
 
   const saved = state.selectedId;
   state.selectedId = null;
@@ -2253,6 +2306,7 @@ function openExportModal() {
   pCtx.drawImage(canvas, 0, 0, srcW, srcH);
 
   document.getElementById('exportModal').classList.add('visible');
+  fitExportPreview();
   setTimeout(function() { updateCropUI(); initLassoCanvas(); }, 80);
 }
 
@@ -2316,8 +2370,8 @@ function drawLassoOverlay() {
 function onExpMove(e) {
   if (!expDrag) return;
   const d = expDrag;
-  const dx = (e.clientX - d.sx) / d.wr.width;
-  const dy = (e.clientY - d.sy) / d.wr.height;
+  const dx = (e.clientX - d.sx) / (d.wr.width * expZoom);
+  const dy = (e.clientY - d.sy) / (d.wr.height * expZoom);
   const MIN = 0.04;
   let x = d.orig.x, y = d.orig.y, w = d.orig.w, h = d.orig.h;
   if (d.type === 'move') {
@@ -2397,6 +2451,51 @@ function doExport() {
 
 // Init modal events after DOMContentLoaded
 document.addEventListener('DOMContentLoaded', function() {
+  const availBox = document.getElementById('expAvailSpace');
+  if (availBox) expResizeObs.observe(availBox);
+
+  document.getElementById('expToolOptions')?.addEventListener('click', function(e) {
+    const opt = e.target.closest('.font-opt'); if (!opt) return;
+    document.querySelectorAll('#expToolOptions .font-opt').forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected');
+    expTool = opt.dataset.tool;
+    const lCv = document.getElementById('expLassoCv');
+    if (lCv) lCv.style.cursor = expTool === 'lasso' ? 'crosshair' : 'grab';
+  });
+
+  const wrap = document.getElementById('expPreviewWrap');
+  if (wrap) {
+    wrap.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      const zoomFactor = 1.1;
+      if (e.deltaY < 0) expZoom *= zoomFactor;
+      else expZoom /= zoomFactor;
+      expZoom = Math.max(0.5, Math.min(expZoom, 10));
+      updateExpTransform();
+    });
+    wrap.addEventListener('pointerdown', function(e) {
+      if (e.target.closest('.crop-edge') || e.target.closest('.exp-handle')) return;
+      if (e.button === 1 || e.button === 2 || expTool === 'pan') {
+        e.preventDefault(); e.stopPropagation();
+        isPanningExp = true;
+        panStartX = e.clientX - expPanX;
+        panStartY = e.clientY - expPanY;
+        wrap.setPointerCapture(e.pointerId);
+      }
+    });
+    wrap.addEventListener('pointermove', function(e) {
+      if (isPanningExp) {
+        expPanX = e.clientX - panStartX;
+        expPanY = e.clientY - panStartY;
+        updateExpTransform();
+      }
+    });
+    wrap.addEventListener('pointerup', function(e) {
+      isPanningExp = false;
+    });
+    wrap.addEventListener('contextmenu', e => e.preventDefault());
+  }
+
   document.getElementById('expCancelBtn')?.addEventListener('click', closeExportModal);
 
   document.getElementById('expResetCropBtn')?.addEventListener('click', function() {
@@ -2434,6 +2533,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var lCv = document.getElementById('expLassoCv');
   if (lCv) {
     lCv.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0 || expTool === 'pan') return;
       e.preventDefault(); e.stopPropagation();
       lassoDrawing = true;
       currentLasso = [];
@@ -2488,11 +2588,13 @@ initImages();
   <div class="export-modal-box">
     <div class="export-modal-title">&#x1F4BE; Ustawienia eksportu PNG</div>
     <div class="export-modal-body">
-      <div class="export-preview-wrap" id="expPreviewWrap">
-        <canvas id="expPrev" style="width:100%;height:100%;display:block;"></canvas>
-        <canvas id="expLassoCv" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;"></canvas>
-        <div style="position:absolute;inset:0;pointer-events:none;">
-          <div id="expCropRect" class="crop-rect" style="pointer-events:none;">
+      <div id="expAvailSpace" style="flex:1; min-width:0; min-height:0; display:flex; align-items:center; justify-content:center;">
+        <div class="export-preview-wrap" id="expPreviewWrap" style="overflow:hidden; position:relative; max-width:100%; max-height:100%;">
+          <div id="expPreviewInner" style="width:100%;height:100%;transform-origin:center;transition:transform 0.05s ease-out;">
+            <canvas id="expPrev" style="width:100%;height:100%;display:block;"></canvas>
+            <canvas id="expLassoCv" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;"></canvas>
+            <div style="position:absolute;inset:0;pointer-events:none;">
+              <div id="expCropRect" class="crop-rect" style="pointer-events:none;">
             <style>
               .crop-edge { position:absolute; pointer-events:all; cursor:move; }
               .crop-edge.n { top:-5px; left:0; right:0; height:10px; }
@@ -2514,8 +2616,20 @@ initImages();
             <div class="crop-handle exp-handle w"  data-dir="w"  style="pointer-events:all;"></div>
           </div>
         </div>
+        </div>
+      </div>
       </div>
       <div class="export-sidebar">
+        <div style="margin-bottom:16px;">
+          <div class="export-section-title">Narzędzie podglądu</div>
+          <div class="font-options" id="expToolOptions">
+            <div class="font-opt selected" data-tool="lasso" style="flex:1;text-align:center;">✂️ Lasso</div>
+            <div class="font-opt" data-tool="pan" style="flex:1;text-align:center;">✋ Przesuwaj</div>
+          </div>
+          <div style="font-size:10px; color:var(--text-muted); margin-top:6px; line-height:1.4;">
+            Scroll by przybliżać. Prawy przycisk myszy zawsze przesuwa widok.
+          </div>
+        </div>
         <div>
           <div class="export-section-title">Ramka kadrowania</div>
           <div class="export-dim-label" id="expDimLabel">Pelny ekran</div>
