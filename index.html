@@ -8,6 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -140,14 +143,14 @@
     .canvas-wrapper { flex:1; overflow:hidden; display:flex; align-items:center; justify-content:center; padding:18px; }
     .canvas-stage {
       position:relative; border-radius:8px; border:1px solid var(--border);
-      background:#1e1e24 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="rgba(255,255,255,0.02)"/><rect x="10" y="10" width="10" height="10" fill="rgba(255,255,255,0.02)"/></svg>') repeat;
+      background:var(--bg);
       height:84vh; width:100%;
       overflow:hidden;
       display:flex; align-items:center; justify-content:center;
-      cursor:grab;
     }
-    .canvas-stage.panning { cursor:grabbing; }
-    #mapCanvas { display:block; max-width:100%; max-height:100%; user-select:none; transform-origin:center center; }
+    #mapContainer { position:absolute; inset:0; width:100%; height:100%; }
+    .maplibregl-canvas { outline:none; }
+    #mapCanvas { position:absolute; inset:0; pointer-events:none; z-index:10; }
     #mapCanvas.adding { cursor:crosshair; }
 
     /* MODAL */
@@ -174,6 +177,129 @@
     details.sidebar-details summary::before { content:'▶'; display:inline-block; margin-right:6px; font-size:10px; transition:transform 0.2s; }
     details.sidebar-details[open] summary::before { transform:rotate(90deg); }
     details.sidebar-details .details-content { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+
+    /* ── EXPORT MODAL ─────────────────────────────────────────── */
+    #exportModal {
+      display: none;
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px);
+      align-items: center; justify-content: center;
+    }
+    #exportModal.visible { display: flex; }
+    .export-modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+      padding: 24px;
+      width: min(92vw, 900px);
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .export-modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .export-modal-body {
+      display: flex;
+      gap: 16px;
+      flex: 1;
+      min-height: 0;
+    }
+    .export-preview-wrap {
+      flex: 1;
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #0a0a12;
+      cursor: crosshair;
+      min-height: 300px;
+      max-height: 60vh;
+    }
+    #exportPreviewCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+    #cropOverlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .export-sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+    .export-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+    .export-check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .export-check-row input[type=checkbox] {
+      width: 16px; height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .export-modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .crop-rect {
+      position: absolute;
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+      cursor: move;
+      box-sizing: border-box;
+    }
+    .crop-handle {
+      position: absolute;
+      width: 12px; height: 12px;
+      background: var(--accent);
+      border: 2px solid #0f1117;
+      border-radius: 2px;
+      box-sizing: border-box;
+    }
+    .crop-handle.nw { top:-6px; left:-6px; cursor:nw-resize; }
+    .crop-handle.ne { top:-6px; right:-6px; cursor:ne-resize; }
+    .crop-handle.sw { bottom:-6px; left:-6px; cursor:sw-resize; }
+    .crop-handle.se { bottom:-6px; right:-6px; cursor:se-resize; }
+    .crop-handle.n  { top:-6px; left:50%; transform:translateX(-50%); cursor:n-resize; }
+    .crop-handle.s  { bottom:-6px; left:50%; transform:translateX(-50%); cursor:s-resize; }
+    .crop-handle.w  { left:-6px; top:50%; transform:translateY(-50%); cursor:w-resize; }
+    .crop-handle.e  { right:-6px; top:50%; transform:translateY(-50%); cursor:e-resize; }
+    .export-dim-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 4px 0;
+    }
 
     ::-webkit-scrollbar { width:5px; }
     ::-webkit-scrollbar-track { background:transparent; }
@@ -206,8 +332,11 @@
     <div class="tab-content active" id="tab-map">
 
       <div class="sidebar-section">
-        <span class="sidebar-label">Wybierz mapę</span>
-        <div class="map-grid" id="mapGrid"></div>
+        <span class="sidebar-label">Wyszukaj kraj lub wyspę</span>
+        <div class="input-row" style="flex-direction:row; gap:5px;">
+          <input type="text" class="text-input" id="countrySearchInput" placeholder="np. Polska, Kreta" autocomplete="off" />
+          <button class="btn btn-outline" id="countrySearchBtn" style="padding:0 12px; flex-shrink:0;">Szukaj</button>
+        </div>
       </div>
 
       <div class="sidebar-section">
@@ -234,6 +363,37 @@
               </div>
             </div>
           </details>
+        </div>
+      </div>
+      
+      <div class="sidebar-section">
+        <span class="sidebar-label">Otoczenie</span>
+        <button class="btn btn-outline" id="toggleLandsBtn" style="width: 100%; margin-bottom: 5px;">Pokaż lądy</button>
+        <div class="input-row" style="flex-direction:row; gap:5px; margin-top:5px; display:none;" id="envColorSelector">
+          <button class="btn btn-outline active" style="flex:1" data-envcolor="#475569">Ciemny</button>
+          <button class="btn btn-outline" style="flex:1" data-envcolor="#cbd5e1">Jasny</button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <span class="sidebar-label">Podświetl dodatkowe państwa</span>
+        <div class="input-row" style="flex-direction:row; gap:5px;">
+          <input type="text" class="text-input" id="highlightCountryInput" placeholder="np. Niemcy, Ukraina…" autocomplete="off" />
+          <button class="btn btn-outline" id="highlightCountryBtn" style="padding:0 12px; flex-shrink:0;">+</button>
+        </div>
+        <div style="margin-top:6px;">
+          <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px;">
+            <span class="sidebar-label" style="margin:0; font-size:11px;">Kolor:</span>
+            <div id="highlightColorRow" style="display:flex; gap:5px; flex-wrap:wrap;">
+              <div class="color-swatch" data-hcolor="brand_navy" style="background:linear-gradient(135deg,#1a4078,#02265C);width:22px;height:22px;" title="Granatowy"></div>
+              <div class="color-swatch selected" data-hcolor="purple" style="background:linear-gradient(135deg,#c084fc,#7c3aed);width:22px;height:22px;" title="Fioletowy"></div>
+              <div class="color-swatch" data-hcolor="red" style="background:linear-gradient(135deg,#f87171,#dc2626);width:22px;height:22px;" title="Czerwony"></div>
+              <div class="color-swatch" data-hcolor="orange" style="background:linear-gradient(135deg,#fb923c,#ea580c);width:22px;height:22px;" title="Pomarańczowy"></div>
+              <div class="color-swatch" data-hcolor="yellow" style="background:linear-gradient(135deg,#facc15,#ca8a04);width:22px;height:22px;" title="Żółty"></div>
+              <div class="color-swatch" data-hcolor="brand_green" style="background:linear-gradient(135deg,#3bd67c,#18A95D);width:22px;height:22px;" title="Zielony"></div>
+            </div>
+          </div>
+          <div id="highlightedCountriesList" style="display:flex; flex-direction:column; gap:4px; max-height:150px; overflow-y:auto;"></div>
         </div>
       </div>
 
@@ -478,7 +638,8 @@
     </div>
     <div class="canvas-wrapper">
       <div class="canvas-stage" id="canvasStage">
-        <canvas id="mapCanvas" width="1600" height="1400"></canvas>
+        <div id="mapContainer"></div>
+        <canvas id="mapCanvas"></canvas>
       </div>
     </div>
   </main>
@@ -643,200 +804,90 @@
 <script>
 // ── BAZA MIAST ────────────────────────────────────────────────────────────────
 const CITY_DB = {
-  italy: [
-    { name: 'Rzym',             rx: 0.450, ry: 0.528, type: 'miasto'   },
-    { name: 'Mediolan',         rx: 0.294, ry: 0.172, type: 'miasto'   },
-    { name: 'Wenecja',          rx: 0.498, ry: 0.188, type: 'miasto'   },
-    { name: 'Neapol',           rx: 0.568, ry: 0.646, type: 'miasto'   },
-    { name: 'Florencja',        rx: 0.415, ry: 0.383, type: 'miasto'   },
-    { name: 'Genua',            rx: 0.210, ry: 0.265, type: 'miasto'   },
-    { name: 'Piza',             rx: 0.360, ry: 0.366, type: 'miasto'   },
-    { name: 'Werona',           rx: 0.434, ry: 0.174, type: 'miasto'   },
-    { name: 'Bolonia',          rx: 0.436, ry: 0.272, type: 'miasto'   },
-    { name: 'Bari',             rx: 0.778, ry: 0.594, type: 'miasto'   },
-    { name: 'Palermo',          rx: 0.472, ry: 0.838, type: 'miasto'   },
-    { name: 'Katania',          rx: 0.554, ry: 0.868, type: 'miasto'   },
-    { name: 'Sycylia',          rx: 0.510, ry: 0.850, type: 'wyspa'    },
-    { name: 'Sardynia',         rx: 0.238, ry: 0.588, type: 'wyspa'    },
-    { name: 'Rzym (Lotnisko)',  rx: 0.434, ry: 0.528, type: 'lotnisko' },
+  caribbean: [
+    { name: 'Punta Cana', lng: -68.3739, lat: 18.5820, type: 'plaza' },
+    { name: 'Santo Domingo', lng: -69.9312, lat: 18.4861, type: 'miasto' },
+    { name: 'Hawana', lng: -82.3666, lat: 23.1136, type: 'miasto' },
+    { name: 'Varadero', lng: -81.2515, lat: 23.1568, type: 'plaza' },
+    { name: 'Nassau (Bahamy)', lng: -77.3390, lat: 25.0343, type: 'miasto' },
+    { name: 'Kingston', lng: -76.7920, lat: 18.0179, type: 'miasto' },
+    { name: 'Montego Bay', lng: -77.9188, lat: 18.4714, type: 'plaza' },
+    { name: 'San Juan (Portoryko)', lng: -66.1057, lat: 18.4655, type: 'miasto' },
+    { name: 'Aruba', lng: -69.9683, lat: 12.5211, type: 'wyspa' },
+    { name: 'Barbados', lng: -59.5432, lat: 13.1939, type: 'wyspa' }
   ],
-  albania: [
-    { name: 'Tirana',           rx: 0.456, ry: 0.400, type: 'miasto'   },
-    { name: 'Durrës',           rx: 0.412, ry: 0.400, type: 'miasto'   },
-    { name: 'Saranda',          rx: 0.544, ry: 0.900, type: 'miasto'   },
-    { name: 'Wlora',            rx: 0.434, ry: 0.700, type: 'miasto'   },
-    { name: 'Ksamil',           rx: 0.544, ry: 0.950, type: 'plaza'    },
+  canaries: [
+    { name: 'Teneryfa', lng: -16.6291, lat: 28.2916, type: 'wyspa' },
+    { name: 'Santa Cruz', lng: -16.2518, lat: 28.4636, type: 'miasto' },
+    { name: 'Gran Canaria', lng: -15.5997, lat: 27.9202, type: 'wyspa' },
+    { name: 'Las Palmas', lng: -15.4363, lat: 28.1235, type: 'miasto' },
+    { name: 'Lanzarote', lng: -13.6234, lat: 29.0469, type: 'wyspa' },
+    { name: 'Fuerteventura', lng: -14.0135, lat: 28.3587, type: 'wyspa' }
   ],
-  croatia: [
-    { name: 'Zagrzeb',          rx: 0.600, ry: 0.200, type: 'miasto'   },
-    { name: 'Split',            rx: 0.600, ry: 0.600, type: 'miasto'   },
-    { name: 'Dubrownik',        rx: 0.900, ry: 0.900, type: 'miasto'   },
-    { name: 'Zadar',            rx: 0.400, ry: 0.500, type: 'miasto'   },
-    { name: 'Pula',             rx: 0.100, ry: 0.300, type: 'miasto'   },
-    { name: 'Makarska',         rx: 0.700, ry: 0.700, type: 'miasto'   },
+  balearics: [
+    { name: 'Majorka', lng: 2.9958, lat: 39.6953, type: 'wyspa' },
+    { name: 'Palma de Mallorca', lng: 2.6502, lat: 39.5696, type: 'miasto' },
+    { name: 'Minorka', lng: 4.0226, lat: 39.9496, type: 'wyspa' },
+    { name: 'Ibiza', lng: 1.4330, lat: 38.9067, type: 'wyspa' }
   ],
-  portugal: [
-    { name: 'Lizbona',          rx: 0.405, ry: 0.700, type: 'miasto'   },
-    { name: 'Porto',            rx: 0.405, ry: 0.200, type: 'miasto'   },
-    { name: 'Faro',             rx: 0.502, ry: 0.950, type: 'miasto'   },
-    { name: 'Albufeira',        rx: 0.478, ry: 0.950, type: 'miasto'   },
-    { name: 'Lagos',            rx: 0.405, ry: 0.950, type: 'miasto'   },
+  madeira_azores: [
+    { name: 'Funchal (Madera)', lng: -16.9081, lat: 32.6511, type: 'miasto' },
+    { name: 'Ponta Delgada (Azory)', lng: -25.6687, lat: 37.7412, type: 'miasto' }
   ],
-  spain: [
-    { name: 'Madryt',           rx: 0.500, ry: 0.500, type: 'miasto'   },
-    { name: 'Barcelona',        rx: 0.850, ry: 0.300, type: 'miasto'   },
-    { name: 'Walencja',         rx: 0.700, ry: 0.500, type: 'miasto'   },
-    { name: 'Alicante',         rx: 0.650, ry: 0.620, type: 'miasto'   },
-    { name: 'Malaga',           rx: 0.450, ry: 0.780, type: 'miasto'   },
-    { name: 'Sewilla',          rx: 0.350, ry: 0.700, type: 'miasto'   },
-    { name: 'Majorka',          rx: 0.950, ry: 0.500, type: 'wyspa'    },
+  mediterranean: [
+    { name: 'Valletta (Malta)', lng: 14.5146, lat: 35.8989, type: 'miasto' },
+    { name: 'Nikozja (Cypr)', lng: 33.3600, lat: 35.1856, type: 'miasto' },
+    { name: 'Pafos (Cypr)', lng: 32.4245, lat: 34.7720, type: 'plaza' },
+    { name: 'Cagliari (Sardynia)', lng: 9.1190, lat: 39.2238, type: 'miasto' },
+    { name: 'Palermo (Sycylia)', lng: 13.3615, lat: 38.1157, type: 'miasto' },
+    { name: 'Katania (Sycylia)', lng: 15.0873, lat: 37.5079, type: 'miasto' }
   ],
-  turkey: [
-    { name: 'Stambuł',              rx: 0.163, ry: 0.365, type: 'miasto'   },
-    { name: 'Izmir',                rx: 0.102, ry: 0.508, type: 'miasto'   },
-    { name: 'Kusadasi',             rx: 0.104, ry: 0.544, type: 'miasto'   },
-    { name: 'Bodrum',               rx: 0.133, ry: 0.578, type: 'miasto'   },
-    { name: 'Marmaris',             rx: 0.168, ry: 0.610, type: 'miasto'   },
-    { name: 'Fethiye',              rx: 0.218, ry: 0.610, type: 'miasto'   },
-    { name: 'Antalya',              rx: 0.362, ry: 0.632, type: 'miasto'   },
-    { name: 'Antalya (Lotnisko)',   rx: 0.372, ry: 0.622, type: 'lotnisko' },
-    { name: 'Alanya',               rx: 0.428, ry: 0.648, type: 'miasto'   },
-    { name: 'Ankara',               rx: 0.440, ry: 0.382, type: 'miasto'   },
-    { name: 'Kapadocja',            rx: 0.558, ry: 0.438, type: 'region'   },
+  greece_extended: [
+    { name: 'Korfu', lng: 19.9197, lat: 39.6243, type: 'wyspa' },
+    { name: 'Mykonos', lng: 25.3274, lat: 37.4415, type: 'wyspa' },
+    { name: 'Santorini', lng: 25.4317, lat: 36.3932, type: 'wyspa' },
+    { name: 'Rodos', lng: 28.2272, lat: 36.4341, type: 'miasto' },
+    { name: 'Kos', lng: 27.2896, lat: 36.8932, type: 'miasto' },
+    { name: 'Zakynthos', lng: 20.8996, lat: 37.7818, type: 'miasto' },
+    { name: 'Kreta', lng: 24.8093, lat: 35.2401, type: 'wyspa' },
+    { name: 'Heraklion (Kreta)', lng: 25.1325, lat: 35.3387, type: 'miasto' },
+    { name: 'Chania (Kreta)', lng: 24.0196, lat: 35.5138, type: 'miasto' }
   ],
-  egypt: [
-    { name: 'Kair',                   rx: 0.478, ry: 0.232, type: 'miasto'   },
-    { name: 'Aleksandria',            rx: 0.374, ry: 0.104, type: 'miasto'   },
-    { name: 'Giza',                   rx: 0.465, ry: 0.246, type: 'miasto'   },
-    { name: 'Sharm el-Sheikh',        rx: 0.676, ry: 0.328, type: 'miasto'   },
-    { name: 'Hurghada',               rx: 0.658, ry: 0.422, type: 'miasto'   },
-    { name: 'Hurghada (Lotnisko)',    rx: 0.648, ry: 0.412, type: 'lotnisko' },
-    { name: 'Luksor',                 rx: 0.552, ry: 0.528, type: 'miasto'   },
-    { name: 'Asuan',                  rx: 0.588, ry: 0.670, type: 'miasto'   },
-    { name: 'Marsa Alam',             rx: 0.722, ry: 0.558, type: 'miasto'   },
-    { name: 'Marsa Alam (Lotnisko)', rx: 0.712, ry: 0.548, type: 'lotnisko' },
+  exotic: [
+    { name: 'Male (Malediwy)', lng: 73.5093, lat: 4.1755, type: 'miasto' },
+    { name: 'Mahe (Seszele)', lng: 55.4920, lat: -4.6796, type: 'wyspa' },
+    { name: 'Port Louis (Mauritius)', lng: 57.5012, lat: -20.1609, type: 'miasto' },
+    { name: 'Phuket (Tajlandia)', lng: 98.3923, lat: 7.8804, type: 'plaza' },
+    { name: 'Bali (Indonezja)', lng: 115.1889, lat: -8.4095, type: 'wyspa' },
+    { name: 'Zanzibar', lng: 39.2083, lat: -6.1659, type: 'wyspa' }
   ],
-  greece: [
-    { name: 'Saloniki',            rx: 0.442, ry: 0.236, type: 'miasto'   },
-    { name: 'Makedonia',           rx: 0.354, ry: 0.222, type: 'region'   },
-    { name: 'Chalkidiki',          rx: 0.517, ry: 0.262, type: 'region'   },
-    { name: 'Thassos',             rx: 0.587, ry: 0.170, type: 'wyspa'    },
-    { name: 'Tesalia',             rx: 0.374, ry: 0.375, type: 'region'   },
-    { name: 'Korfu',               rx: 0.144, ry: 0.362, type: 'wyspa'    },
-    { name: 'Kefalonia',           rx: 0.197, ry: 0.540, type: 'wyspa'    },
-    { name: 'Zakynthos',           rx: 0.210, ry: 0.610, type: 'wyspa'    },
-    { name: 'Skopelos',            rx: 0.506, ry: 0.383, type: 'wyspa'    },
-    { name: 'Evia',                rx: 0.540, ry: 0.466, type: 'wyspa'    },
-    { name: 'Attyka',              rx: 0.466, ry: 0.516, type: 'region'   },
-    { name: 'Ateny',               rx: 0.478, ry: 0.553, type: 'miasto'   },
-    { name: 'Ateny (Lotnisko)',    rx: 0.496, ry: 0.564, type: 'lotnisko' },
-    { name: 'Pireus (Port)',       rx: 0.463, ry: 0.563, type: 'port'     },
-    { name: 'Peloponez',           rx: 0.358, ry: 0.646, type: 'region'   },
-    { name: 'Korynt',              rx: 0.418, ry: 0.576, type: 'miasto'   },
-    { name: 'Patras',              rx: 0.324, ry: 0.550, type: 'miasto'   },
-    { name: 'Lesbos',              rx: 0.676, ry: 0.366, type: 'wyspa'    },
-    { name: 'Chios',               rx: 0.700, ry: 0.462, type: 'wyspa'    },
-    { name: 'Samos',               rx: 0.733, ry: 0.522, type: 'wyspa'    },
-    { name: 'Andros',              rx: 0.566, ry: 0.526, type: 'wyspa'    },
-    { name: 'Tinos',               rx: 0.596, ry: 0.556, type: 'wyspa'    },
-    { name: 'Mykonos',             rx: 0.628, ry: 0.596, type: 'wyspa'    },
-    { name: 'Santorini',           rx: 0.576, ry: 0.740, type: 'wyspa'    },
-    { name: 'Milos',               rx: 0.524, ry: 0.693, type: 'wyspa'    },
-    { name: 'Kos',                 rx: 0.760, ry: 0.616, type: 'wyspa'    },
-    { name: 'Rodos',               rx: 0.798, ry: 0.720, type: 'wyspa'    },
-    { name: 'Lindos',              rx: 0.798, ry: 0.750, type: 'miasto'   },
-    { name: 'Karpathos',           rx: 0.768, ry: 0.788, type: 'wyspa'    },
-    { name: 'Kreta',               rx: 0.500, ry: 0.893, type: 'wyspa'    },
-    { name: 'Heraklion (Lotnisko)',rx: 0.526, ry: 0.840, type: 'lotnisko' },
-    { name: 'Chania',              rx: 0.403, ry: 0.808, type: 'miasto'   },
-    { name: 'Rethymno',            rx: 0.446, ry: 0.848, type: 'miasto'   },
-  ],
-  mauritius: [
-    { name: 'Grand Gaube',          rx: 0.522, ry: 0.133, type: 'miasto'   },
-    { name: 'Grand Baie',           rx: 0.422, ry: 0.153, type: 'miasto'   },
-    { name: 'Trou aux Biches',      rx: 0.295, ry: 0.216, type: 'miasto'   },
-    { name: 'Port Louis',           rx: 0.298, ry: 0.333, type: 'miasto'   },
-    { name: 'Belle Mare',           rx: 0.636, ry: 0.343, type: 'miasto'   },
-    { name: 'Trou d\'Eau Douce',    rx: 0.646, ry: 0.416, type: 'miasto'   },
-    { name: 'Flic en Flac',         rx: 0.216, ry: 0.458, type: 'miasto'   },
-    { name: 'Quatre Bornes',        rx: 0.392, ry: 0.488, type: 'miasto'   },
-    { name: 'Tamarin',              rx: 0.218, ry: 0.516, type: 'miasto'   },
-    { name: 'Curepipe',             rx: 0.432, ry: 0.526, type: 'miasto'   },
-    { name: 'Black River',          rx: 0.220, ry: 0.560, type: 'miasto'   },
-    { name: 'Chamarel',             rx: 0.280, ry: 0.596, type: 'miasto'   },
-    { name: 'Le Morne',             rx: 0.180, ry: 0.656, type: 'miejsce'  },
-    { name: 'SSR (Lotnisko)',        rx: 0.556, ry: 0.686, type: 'lotnisko' },
-    { name: 'Mahebourg',            rx: 0.572, ry: 0.712, type: 'miasto'   },
-    { name: 'Blue Bay',             rx: 0.592, ry: 0.746, type: 'miasto'   },
-    { name: 'Souillac',             rx: 0.395, ry: 0.806, type: 'miasto'   },
+  europe_cities: [
+    { name: 'Rzym', lng: 12.4964, lat: 41.9028, type: 'miasto' },
+    { name: 'Paryż', lng: 2.3522, lat: 48.8566, type: 'miasto' },
+    { name: 'Londyn', lng: -0.1276, lat: 51.5074, type: 'miasto' },
+    { name: 'Madryt', lng: -3.7038, lat: 40.4168, type: 'miasto' },
+    { name: 'Barcelona', lng: 2.1686, lat: 41.3874, type: 'miasto' },
+    { name: 'Berlin', lng: 13.4050, lat: 52.5200, type: 'miasto' },
+    { name: 'Amsterdam', lng: 4.9041, lat: 52.3676, type: 'miasto' },
+    { name: 'Praga', lng: 14.4378, lat: 50.0755, type: 'miasto' },
+    { name: 'Wiedeń', lng: 16.3738, lat: 48.2082, type: 'miasto' },
+    { name: 'Ateny', lng: 23.7275, lat: 37.9838, type: 'miasto' },
+    { name: 'Lizbona', lng: -9.1393, lat: 38.7223, type: 'miasto' }
   ],
   world: [
-    { name: 'Grecja',           rx: 0.530, ry: 0.456, type: 'region'   },
-    { name: 'Hiszpania',        rx: 0.470, ry: 0.445, type: 'region'   },
-    { name: 'Turcja',           rx: 0.550, ry: 0.456, type: 'region'   },
-    { name: 'Egipt',            rx: 0.540, ry: 0.494, type: 'region'   },
-    { name: 'Włochy',           rx: 0.500, ry: 0.445, type: 'region'   },
-    { name: 'Mauritius',        rx: 0.620, ry: 0.609, type: 'region'   },
-    { name: 'Malediwy',         rx: 0.680, ry: 0.554, type: 'region'   },
-    { name: 'Tajlandia',        rx: 0.770, ry: 0.516, type: 'region'   },
-    { name: 'Dominikana',       rx: 0.280, ry: 0.511, type: 'region'   },
-    { name: 'Meksyk',           rx: 0.180, ry: 0.500, type: 'region'   },
-    { name: 'Zjednoczone Emiraty Arabskie', rx: 0.610, ry: 0.500, type: 'region' },
-    { name: 'USA',              rx: 0.200, ry: 0.445, type: 'region'   },
-    { name: 'Kuba',             rx: 0.250, ry: 0.511, type: 'region'   },
-    { name: 'Chorwacja',        rx: 0.510, ry: 0.440, type: 'region'   },
-    { name: 'Czarnogóra',       rx: 0.520, ry: 0.445, type: 'region'   },
-    { name: 'Cypr',             rx: 0.550, ry: 0.467, type: 'region'   },
-    { name: 'Bułgaria',         rx: 0.530, ry: 0.440, type: 'region'   },
-    { name: 'Tunezja',          rx: 0.500, ry: 0.473, type: 'region'   },
-    { name: 'Maroko',           rx: 0.460, ry: 0.478, type: 'region'   },
-    { name: 'Polska',           rx: 0.510, ry: 0.407, type: 'region'   },
-  ],
-  crete: [
-    { name: 'Chania',           rx: 0.250, ry: 0.468, type: 'miasto'   },
-    { name: 'Rethymno',         rx: 0.400, ry: 0.484, type: 'miasto'   },
-    { name: 'Heraklion',        rx: 0.580, ry: 0.484, type: 'miasto'   },
-    { name: 'Heraklion (Lotnisko)', rx: 0.600, ry: 0.480, type: 'lotnisko' },
-    { name: 'Agios Nikolaos',   rx: 0.800, ry: 0.500, type: 'miasto'   },
-    { name: 'Elafonisi',        rx: 0.050, ry: 0.500, type: 'plaza'    },
-    { name: 'Hersonissos',      rx: 0.680, ry: 0.484, type: 'miasto'   },
-    { name: 'Malia',            rx: 0.720, ry: 0.484, type: 'miasto'   },
-    { name: 'Ierapetra',        rx: 0.800, ry: 0.538, type: 'miasto'   },
-    { name: 'Sitia',            rx: 0.920, ry: 0.506, type: 'miasto'   },
-  ],
-  rhodes: [
-    { name: 'Rodos (miasto)',   rx: 0.776, ry: 0.050, type: 'miasto'   },
-    { name: 'Rodos (Lotnisko)', rx: 0.737, ry: 0.100, type: 'lotnisko' },
-    { name: 'Lindos',           rx: 0.776, ry: 0.500, type: 'miasto'   },
-    { name: 'Faliraki',         rx: 0.776, ry: 0.250, type: 'miasto'   },
-    { name: 'Prasonisi',        rx: 0.278, ry: 0.950, type: 'plaza'    },
-    { name: 'Kolymbia',         rx: 0.784, ry: 0.350, type: 'miasto'   },
-  ],
-  kos: [
-    { name: 'Kos (miasto)',     rx: 0.980, ry: 0.404, type: 'miasto'   },
-    { name: 'Kos (Lotnisko)',   rx: 0.400, ry: 0.500, type: 'lotnisko' },
-    { name: 'Tigaki',           rx: 0.700, ry: 0.372, type: 'miasto'   },
-    { name: 'Kardamena',        rx: 0.450, ry: 0.532, type: 'miasto'   },
-    { name: 'Kefalos',          rx: 0.050, ry: 0.660, type: 'miasto'   },
-    { name: 'Marmari',          rx: 0.600, ry: 0.404, type: 'miasto'   },
-    { name: 'Mastichari',       rx: 0.500, ry: 0.468, type: 'miasto'   },
-  ],
-  zakynthos: [
-    { name: 'Zakynthos (miasto)', rx: 0.900, ry: 0.497, type: 'miasto' },
-    { name: 'Zakynthos (Lotnisko)', rx: 0.850, ry: 0.590, type: 'lotnisko' },
-    { name: 'Laganas',          rx: 0.700, ry: 0.682, type: 'miasto'   },
-    { name: 'Zatoka Wraku (Navagio)', rx: 0.250, ry: 0.173, type: 'plaza' },
-    { name: 'Tsilivi',          rx: 0.850, ry: 0.358, type: 'miasto'   },
-    { name: 'Alykes',           rx: 0.600, ry: 0.220, type: 'plaza'    },
-    { name: 'Kalamaki',         rx: 0.800, ry: 0.682, type: 'miasto'   },
-    { name: 'Argassi',          rx: 0.920, ry: 0.636, type: 'miasto'   },
-  ],
+    { name: 'Nowy Jork', lng: -74.0060, lat: 40.7128, type: 'miasto' },
+    { name: 'Dubaj', lng: 55.2708, lat: 25.2048, type: 'miasto' },
+    { name: 'Tokio', lng: 139.6917, lat: 35.6895, type: 'miasto' },
+    { name: 'Sydney', lng: 151.2093, lat: -33.8688, type: 'miasto' },
+    { name: 'Rio de Janeiro', lng: -43.1729, lat: -22.9068, type: 'miasto' },
+    { name: 'Kapsztad', lng: 18.4232, lat: -33.9249, type: 'miasto' }
+  ]
 };
 
 // ── PALETA KOLORÓW ────────────────────────────────────────────────────────────
 const PALETTE = {
   brand_green_light: { c1:'#86efac', c2:'#4ade80' },
-  brand_green:       { c1:'#3bd67c', c2:'#18A95D' },
+  brand_green:       { c1:'#10BF63', c2:'#089A4E' },
   brand_green_dark:  { c1:'#166534', c2:'#064e3b' },
   brand_navy:  { c1:'#1a4078', c2:'#02265C' },
   brand_white: { c1:'#ffffff', c2:'#cbd5e1' },
@@ -850,20 +901,18 @@ const PALETTE = {
 };
 
 const BUILTIN_MAPS = [
-  { id:'world',     name:'Świat',     sub:'Cały świat',            emoji:'🌍', src:'images/Mapa świata.png', category: 'Świat' },
-  { id:'albania',   name:'Albania',   sub:'Republika Albanii',     emoji:'🦅', src:'images/Albania.png', category: 'Kraje' },
-  { id:'croatia',   name:'Chorwacja', sub:'Republika Chorwacji',   emoji:'⛵', src:'images/Chorwacja.png', category: 'Kraje' },
-  { id:'portugal',  name:'Portugalia',sub:'Republika Portugalska', emoji:'🏄', src:'images/Portugalia.png', category: 'Kraje' },
-  { id:'spain',     name:'Hiszpania', sub:'Królestwo Hiszpanii',   emoji:'💃', src:'images/Hiszpania.png', category: 'Kraje' },
-  { id:'egypt',     name:'Egipt',     sub:'Arabska Republika',     emoji:'🐪', src:'images/Egipt.png', category: 'Kraje' },
-  { id:'greece',    name:'Grecja',    sub:'Republika Grecka',      emoji:'🏛️', src:'images/Grecja.png', category: 'Kraje' },
-  { id:'mauritius', name:'Mauritius', sub:'Republika Mauritiusu',  emoji:'🌴', src:'images/Mauritius.png', extrudeScale: 2, category: 'Kraje' },
-  { id:'turkey',    name:'Turcja',    sub:'Republika Turcji',      emoji:'🕌', src:'images/Turcja.png', category: 'Kraje' },
-  { id:'italy',     name:'Włochy',    sub:'Republika Włoska',      emoji:'🍕', src:'images/Wlochy.png', category: 'Kraje' },
-  { id:'kos',       name:'Kos',       sub:'Grecja',                emoji:'🏝️', src:'images/Kos.png', category: 'Wyspy Greckie' },
-  { id:'crete',     name:'Kreta',     sub:'Grecja',                emoji:'🏝️', src:'images/Kreta.png', category: 'Wyspy Greckie' },
-  { id:'rhodes',    name:'Rodos',     sub:'Grecja',                emoji:'🏝️', src:'images/Rodos.png', category: 'Wyspy Greckie' },
-  { id:'zakynthos', name:'Zakynthos', sub:'Grecja',                emoji:'🏝️', src:'images/Zakhyntos.png', category: 'Wyspy Greckie' },
+  { id: 'world', name: 'Świat', sub: 'Widok globalny', emoji: '🌍', center: [0, 20], zoom: 1.5, category: 'Świat' },
+  { id: 'europe', name: 'Europa', sub: 'Kontynent europejski', emoji: '🇪🇺', center: [15, 50], zoom: 3.5, category: 'Regiony' },
+  { id: 'caribbean', name: 'Karaiby', sub: 'Morze Karaibskie', emoji: '🥥', center: [-73, 19], zoom: 4.5, category: 'Regiony' },
+  { id: 'canaries', name: 'Wyspy Kanaryjskie', sub: 'Hiszpania', emoji: '🌋', center: [-15.5, 28.3], zoom: 6.5, category: 'Wyspy' },
+  { id: 'balearics', name: 'Baleary', sub: 'Hiszpania', emoji: '⛵', center: [2.9, 39.5], zoom: 7, category: 'Wyspy' },
+  { id: 'greece', name: 'Grecja', sub: 'Morze Egejskie', emoji: '🏛️', center: [24, 38], zoom: 5.5, category: 'Kraje' },
+  { id: 'crete', name: 'Kreta', sub: 'Grecja', emoji: '🏝️', center: [24.8, 35.2], zoom: 7.5, category: 'Wyspy' },
+  { id: 'italy', name: 'Włochy', sub: 'Półwysep Apeniński', emoji: '🍕', center: [12.5, 42], zoom: 5, category: 'Kraje' },
+  { id: 'spain', name: 'Hiszpania', sub: 'Półwysep Iberyjski', emoji: '💃', center: [-3.7, 40.4], zoom: 5, category: 'Kraje' },
+  { id: 'egypt', name: 'Egipt', sub: 'Afryka Północna', emoji: '🐪', center: [30, 26], zoom: 5, category: 'Kraje' },
+  { id: 'turkey', name: 'Turcja', sub: 'Eurazja', emoji: '🕌', center: [35, 39], zoom: 5, category: 'Kraje' },
+  { id: 'maldives', name: 'Malediwy', sub: 'Ocean Indyjski', emoji: '🤿', center: [73.5, 4.1], zoom: 7, category: 'Wyspy' }
 ];
 
 // Sort maps and cities alphabetically
@@ -903,6 +952,8 @@ const state = {
   connStyle:   'solid',
   connColor:   'brand_green',
   connThickness: 3,
+  showLands:   false,
+  envColor:    '#475569'
 };
 
 // ── UNDO ──────────────────────────────────────────────────────────────────────
@@ -923,111 +974,76 @@ window.addEventListener('keydown', e => {
   }
 });
 
-// ── ZOOM & PAN ────────────────────────────────────────────────────────────────
-let zoomLevel = 1, panX = 0, panY = 0;
-let isPanning = false, panStartX = 0, panStartY = 0;
-
+// ── MAPLIBRE & CANVAS SETUP ──────────────────────────────────────────────────
+let map;
 const canvas = document.getElementById('mapCanvas');
 const ctx    = canvas.getContext('2d');
 const stage  = document.getElementById('canvasStage');
 
 function updateTransform() {
-  canvas.style.transform = `translate(${panX}px,${panY}px) scale(${zoomLevel})`;
-  document.getElementById('zoomDisplay').textContent = Math.round(zoomLevel * 100) + '%';
+  if(map) document.getElementById('zoomDisplay').textContent = Math.round(map.getZoom() * 10) + '';
 }
 
-stage.addEventListener('wheel', e => {
-  e.preventDefault();
-  const factor  = e.deltaY < 0 ? 1.1 : 0.9;
-  const newZoom = Math.max(0.35, Math.min(zoomLevel * factor, 6));
+let isDraggingMarker = false;
+let dragMarkerOffset = { x:0, y:0 };
 
-  // Zoom towards cursor
-  const sr  = stage.getBoundingClientRect();
-  const scx = sr.left + sr.width  / 2;
-  const scy = sr.top  + sr.height / 2;
-  const cx  = e.clientX - scx;
-  const cy  = e.clientY - scy;
-  panX = cx - (cx - panX) * (newZoom / zoomLevel);
-  panY = cy - (cy - panY) * (newZoom / zoomLevel);
-  zoomLevel = newZoom;
-  updateTransform();
-}, { passive: false });
-
-// ── CANVAS COORDINATE HELPER ──────────────────────────────────────────────────
-function canvasXY(e) {
-  const r  = canvas.getBoundingClientRect();
-  const sx = canvas.width  / r.width;
-  const sy = canvas.height / r.height;
-  const cx = e.touches ? e.touches[0].clientX : e.clientX;
-  const cy = e.touches ? e.touches[0].clientY : e.clientY;
-  return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
-}
-
-// ── CANVAS EVENTS ─────────────────────────────────────────────────────────────
-canvas.addEventListener('mousedown', e => {
-  if (e.button !== 0) return;
-  const pos = canvasXY(e);
-
+function onMapMouseDown(e) {
+  if (e.originalEvent.button !== 0) return;
+  
   if (state.addingMode) {
     const label = document.getElementById('markerLabel')?.value.trim() || '';
-    placeMarker(pos.x, pos.y, label);
+    placeMarker(e.lngLat.lng, e.lngLat.lat, label);
     return;
   }
-
-  const hit = hitMarker(pos.x, pos.y);
+  
+  const hit = hitMarker(e.point.x, e.point.y);
   if (hit) {
+    e.preventDefault();
+    map.dragPan.disable();
+    isDraggingMarker = true;
     saveState();
     state.draggingId = hit.id;
-    state.dragOffX   = pos.x - hit.x;
-    state.dragOffY   = pos.y - hit.y;
     state.selectedId = hit.id;
-    buildMarkersList(); render();
+    const pt = map.project([hit.lng, hit.lat]);
+    dragMarkerOffset = { x: e.point.x - pt.x, y: e.point.y - pt.y };
+    buildMarkersList(); 
+    render();
   } else {
-    isPanning  = true;
-    panStartX  = e.clientX - panX;
-    panStartY  = e.clientY - panY;
-    stage.classList.add('panning');
     state.selectedId = null;
-    buildMarkersList(); render();
+    buildMarkersList(); 
+    render();
   }
-});
+}
 
-window.addEventListener('mousemove', e => {
-  if (isPanning) {
-    panX = e.clientX - panStartX;
-    panY = e.clientY - panStartY;
-    updateTransform();
-    return;
-  }
-  if (state.draggingId) {
-    const r   = canvas.getBoundingClientRect();
-    const sx  = canvas.width  / r.width;
-    const sy  = canvas.height / r.height;
-    const pos = { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
-    const m   = state.markers.find(m => m.id === state.draggingId);
+function onMapMouseMove(e) {
+  if (isDraggingMarker && state.draggingId) {
+    const m = state.markers.find(m => m.id === state.draggingId);
     if (m) {
-      m.x = Math.max(0, Math.min(canvas.width,  pos.x - state.dragOffX));
-      m.y = Math.max(0, Math.min(canvas.height, pos.y - state.dragOffY));
+      const newPoint = { x: e.point.x - dragMarkerOffset.x, y: e.point.y - dragMarkerOffset.y };
+      const unp = map.unproject(newPoint);
+      m.lng = unp.lng;
+      m.lat = unp.lat;
       render();
     }
-    return;
+  } else if (!state.addingMode) {
+    stage.style.cursor = hitMarker(e.point.x, e.point.y) ? 'grab' : '';
   }
-  if (!state.addingMode) {
-    const pos = canvasXY(e);
-    canvas.style.cursor = hitMarker(pos.x, pos.y) ? 'grab' : 'default';
+}
+
+function onMapMouseUp(e) {
+  if (isDraggingMarker) {
+    isDraggingMarker = false;
+    map.dragPan.enable();
+    state.draggingId = null;
+    buildMarkersList();
   }
-});
+}
 
-window.addEventListener('mouseup', () => {
-  if (isPanning) { isPanning = false; stage.classList.remove('panning'); }
-  if (state.draggingId) { state.draggingId = null; buildMarkersList(); }
-});
-
-canvas.addEventListener('dblclick', e => {
+function onMapDblClick(e) {
   if (state.addingMode) return;
-  const hit = hitMarker(canvasXY(e).x, canvasXY(e).y);
+  const hit = hitMarker(e.point.x, e.point.y);
   if (hit) { state.selectedId = hit.id; openEditModal(hit); buildMarkersList(); render(); }
-});
+}
 
 // ── ŁADOWANIE OBRAZÓW ─────────────────────────────────────────────────────────
 function loadImg(src) {
@@ -1040,13 +1056,6 @@ function loadImg(src) {
 }
 
 async function initImages() {
-  for (const map of BUILTIN_MAPS) {
-    try { 
-      const b64 = (typeof B64_IMAGES !== 'undefined') ? B64_IMAGES[map.src.split('/').pop()] : null;
-      mapImages[map.id] = await loadImg(b64 || map.src); 
-    }
-    catch(e) { console.warn(e.message); }
-  }
   for (const [key, src] of Object.entries(MARKER_SRCS)) {
     try { 
       const b64 = (typeof B64_IMAGES !== 'undefined') ? B64_IMAGES[src.split('/').pop()] : null;
@@ -1054,86 +1063,63 @@ async function initImages() {
     }
     catch(e) { console.warn(e.message); }
   }
-  fitCanvas(); render(); buildMapGrid(); updateLabelPreview();
+
+  map = new maplibregl.Map({
+    container: 'mapContainer',
+    style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    center: [0, 20],
+    zoom: 1.5,
+    preserveDrawingBuffer: true,
+    attributionControl: false
+  });
+  
+  map.on('load', () => {
+    resizeCanvas();
+    render();
+    selectMap('europe');
+  });
+  
+  map.on('move', render);
+  map.on('zoom', render);
+  
+  map.on('mousedown', onMapMouseDown);
+  map.on('mousemove', onMapMouseMove);
+  map.on('mouseup', onMapMouseUp);
+  map.on('dblclick', onMapDblClick);
+  map.doubleClickZoom.disable();
+  
+  window.addEventListener('resize', resizeCanvas);
+  updateLabelPreview();
 }
 
-function fitCanvas() {
-  const img = mapImages[state.activeMapId];
-  if (!img) { canvas.width = 1000; canvas.height = 800; return; }
-  const r  = Math.min(3000 / img.naturalWidth, 3000 / img.naturalHeight);
-  canvas.width  = Math.round(img.naturalWidth  * r) + MAP_PADDING * 2;
-  canvas.height = Math.round(img.naturalHeight * r) + MAP_PADDING * 2;
+function resizeCanvas() {
+  const cont = document.getElementById('mapContainer');
+  canvas.width = cont.clientWidth;
+  canvas.height = cont.clientHeight;
+  render();
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
-function shadeHex(color, pct) {
-  let R = parseInt(color.slice(1,3),16);
-  let G = parseInt(color.slice(3,5),16);
-  let B = parseInt(color.slice(5,7),16);
-  R = Math.min(255, Math.max(0, Math.round(R * (100+pct) / 100)));
-  G = Math.min(255, Math.max(0, Math.round(G * (100+pct) / 100)));
-  B = Math.min(255, Math.max(0, Math.round(B * (100+pct) / 100)));
-  return '#' + [R,G,B].map(v => v.toString(16).padStart(2,'0')).join('');
-}
-
-function drawMap(c, w, h, img) {
-  const mapData = BUILTIN_MAPS.find(m => m.id === state.activeMapId) || (state.customMaps || []).find(m => m.id === state.activeMapId);
-  const extrudeScale = mapData?.extrudeScale || 1;
-  const extrudeDepth = Math.round(9 * extrudeScale);
-
-  const pal    = PALETTE[state.mapColor] || PALETTE.brand_green;
-  const darker = shadeHex(pal.c2, -50);
-  const lighter= shadeHex(pal.c1, 60);
-  const dw = w - MAP_PADDING*2, dh = h - MAP_PADDING*2;
-
-  // Top surface (colored)
-  const top = document.createElement('canvas'); top.width = w; top.height = h;
-  const tc  = top.getContext('2d');
-  tc.drawImage(img, MAP_PADDING, MAP_PADDING, dw, dh);
-  tc.globalCompositeOperation = 'source-in';
-  const grd = tc.createLinearGradient(0,0,w,h);
-  grd.addColorStop(0, shadeHex(pal.c1, 15));
-  grd.addColorStop(1, shadeHex(pal.c2, -15));
-  tc.fillStyle = grd; tc.fillRect(0,0,w,h);
-
-  // Outline
-  const outl = document.createElement('canvas'); outl.width = w; outl.height = h;
-  const oc = outl.getContext('2d');
-  const pos = [
-    [-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1],
-    [-2,0],[2,0],[0,-2],[0,2]
-  ];
-  pos.forEach(([dx,dy]) => oc.drawImage(img, MAP_PADDING+dx, MAP_PADDING+dy, dw, dh));
-  oc.globalCompositeOperation = 'source-in';
-  oc.fillStyle = lighter; oc.fillRect(0,0,w,h);
-
-  // Wall (3D extrusion)
-  const wall = document.createElement('canvas'); wall.width = w; wall.height = h;
-  const wc   = wall.getContext('2d');
-  wc.drawImage(outl, 0, 0);
-  wc.globalCompositeOperation = 'source-in';
-  wc.fillStyle = darker; wc.fillRect(0,0,w,h);
-
-  for (let i = 1; i <= extrudeDepth; i++) c.drawImage(wall, 0, i);
-  c.drawImage(outl, 0, 0);
-  c.drawImage(top, 0, 0);
-}
-
 function render() {
+  if (!map) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const img = mapImages[state.activeMapId];
-  if (img) {
-    drawMap(ctx, canvas.width, canvas.height, img);
-  } else {
-    ctx.fillStyle = '#8892b0'; ctx.font = '14px Inter,sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('Brak obrazu mapy — sprawdź folder images/', canvas.width/2, canvas.height/2);
-  }
+  
+  // Update projected coordinates for all markers
+  state.markers.forEach(m => {
+    if (m.lng !== undefined && m.lat !== undefined) {
+      const pt = map.project([m.lng, m.lat]);
+      m.x = pt.x;
+      m.y = pt.y;
+    }
+  });
+
   const activeMarkers = state.markers.filter(m => m.mapId === state.activeMapId || !m.mapId);
   const activeConns = state.connections.filter(c => {
     return !!activeMarkers.find(m => m.id === c.fromId);
   });
   activeConns.forEach(c => drawConnection(ctx, c, activeMarkers));
   activeMarkers.forEach(m => drawMarker(ctx, m, m.id === state.selectedId));
+  updateTransform();
 }
 
 function drawConnection(c, conn, markersList = state.markers) {
@@ -1141,30 +1127,32 @@ function drawConnection(c, conn, markersList = state.markers) {
   const m2 = markersList.find(m => m.id === conn.toId);
   if (!m1 || !m2) return;
 
+  const zScale1 = (map && m1.baseZoom) ? Math.pow(2, map.getZoom() - m1.baseZoom) : 1;
   const isTextOnly1 = m1.labelPos === 'text_only';
   const mImg1 = markerImgs[m1.markerType] || markerImgs.default;
   let dw1 = 0, dh1 = 0;
   if (!isTextOnly1) {
-    dw1 = m1.size * state.globalScale;
-    dh1 = dw1;
+    dh1 = m1.size * state.globalScale * zScale1;
+    dw1 = dh1;
     if (mImg1) dw1 = dh1 * ((mImg1.naturalWidth||mImg1.width)/(mImg1.naturalHeight||mImg1.height));
   }
 
+  const zScale2 = (map && m2.baseZoom) ? Math.pow(2, map.getZoom() - m2.baseZoom) : 1;
   const isTextOnly2 = m2.labelPos === 'text_only';
   const mImg2 = markerImgs[m2.markerType] || markerImgs.default;
   let dw2 = 0, dh2 = 0;
   if (!isTextOnly2) {
-    dw2 = m2.size * state.globalScale;
-    dh2 = dw2;
+    dh2 = m2.size * state.globalScale * zScale2;
+    dw2 = dh2;
     if (mImg2) dw2 = dh2 * ((mImg2.naturalWidth||mImg2.width)/(mImg2.naturalHeight||mImg2.height));
   }
 
-  // Pin visual center is roughly at 65% of height from bottom
-  const cy1 = isTextOnly1 ? m1.y : m1.y - dh1 * 0.65;
-  const cy2 = isTextOnly2 ? m2.y : m2.y - dh2 * 0.65;
+  // Center of icon is exactly at m.y (anchor changed to center)
+  const cy1 = m1.y;
+  const cy2 = m2.y;
   const angle = Math.atan2(cy2 - cy1, m2.x - m1.x);
-  const off1 = dw1 * 0.4;
-  const off2 = dw2 * 0.4;
+  const off1 = Math.max(dw1, dh1) * 0.45;
+  const off2 = Math.max(dw2, dh2) * 0.45;
   
   const sx = m1.x + Math.cos(angle) * off1;
   const sy = cy1 + Math.sin(angle) * off1;
@@ -1208,7 +1196,8 @@ function roundRect(c, x, y, w, h, r) {
 }
 
 function drawMarker(c, m, selected) {
-  const efSize = Math.round(m.size * state.globalScale);
+  const zScale = (map && m.baseZoom) ? Math.pow(2, map.getZoom() - m.baseZoom) : 1;
+  const efSize = Math.round(m.size * state.globalScale * zScale);
   const isTextOnly = m.labelPos === 'text_only';
   const isMarkerOnly = m.labelPos === 'marker_only';
   let dw = 0, dh = 0;
@@ -1233,12 +1222,12 @@ function drawMarker(c, m, selected) {
       }
       if (selected) {
         c.save(); c.shadowBlur = 22; c.shadowColor = 'rgba(74,222,128,0.9)';
-        c.drawImage(off, m.x - dw/2, m.y - dh, dw, dh);    c.restore();
+        c.drawImage(off, m.x - dw/2, m.y - dh/2, dw, dh);    c.restore();
       }
 
       c.save();
       c.shadowBlur = 4; c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowOffsetX = 2; c.shadowOffsetY = 4;
-      c.drawImage(off, m.x - dw/2, m.y - dh);
+      c.drawImage(off, m.x - dw/2, m.y - dh/2);
       c.restore();
     } else {
       const hs = efSize / 2;
@@ -1250,7 +1239,7 @@ function drawMarker(c, m, selected) {
 
   if (m.label && !isMarkerOnly) {
     c.save();
-    const fz = Math.round((m.fontSize || state.fontSize || 34) * state.globalScale);
+    const fz = Math.round((m.fontSize || state.fontSize || 34) * state.globalScale * zScale);
     c.font = `bold ${fz}px Figtree,Arial,sans-serif`;
     c.textBaseline = 'middle'; c.textAlign = 'center';
     const text = m.label.toUpperCase();
@@ -1266,7 +1255,7 @@ function drawMarker(c, m, selected) {
       by = m.y - bh / 2;
     } else {
       bx = isRight ? m.x + dw / 2 + gap : m.x - bw / 2;
-      by = isRight ? m.y - dh / 2 - bh / 2 : m.y + gap;
+      by = isRight ? m.y - bh / 2 : m.y + dh/2 + gap;
     }
     const textX = bx + bw / 2;
 
@@ -1290,7 +1279,8 @@ function drawMarker(c, m, selected) {
 }
 
 function getMarkerBounds(m) {
-  const efSize = Math.round(m.size * state.globalScale);
+  const zScale = (map && m.baseZoom) ? Math.pow(2, map.getZoom() - m.baseZoom) : 1;
+  const efSize = Math.round(m.size * state.globalScale * zScale);
   const isTextOnly = m.labelPos === 'text_only';
   const isMarkerOnly = m.labelPos === 'marker_only';
   let dw = 0, dh = 0;
@@ -1303,7 +1293,7 @@ function getMarkerBounds(m) {
     }
   }
   
-  const fz = Math.round((m.fontSize || state.fontSize || 34) * state.globalScale);
+  const fz = Math.round((m.fontSize || state.fontSize || 34) * state.globalScale * zScale);
   const bh = fz + fz * 0.76;
   const bw = fz * 8; // approximate label width
   
@@ -1330,57 +1320,374 @@ function hitMarker(x, y) {
   return null;
 }
 
-// ── SIATKA MAP ────────────────────────────────────────────────────────────────
-function buildMapGrid() {
-  const grid = document.getElementById('mapGrid'); if (!grid) return;
-  grid.innerHTML = '';
-  
-  const categories = {};
-  BUILTIN_MAPS.forEach(map => {
-    if (!categories[map.category]) categories[map.category] = [];
-    categories[map.category].push(map);
-  });
+// ── WYSZUKIWANIE KRAJU ────────────────────────────────────────────────────────
+let globalCountriesGeoJson = null;
 
-  const catOrder = ['Świat', 'Kraje', 'Wyspy Greckie'];
+async function searchCountry(query) {
+  if (!query) return;
+  const btn = document.getElementById('countrySearchBtn');
+  btn.textContent = '...';
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&polygon_geojson=1&polygon_threshold=0.0001&format=json&accept-language=pl&addressdetails=1&email=generator@example.com`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data || data.length === 0) {
+      toast('Nie znaleziono miejsca', 'error');
+      btn.textContent = 'Szukaj';
+      return;
+    }
+    const nomResult = data.find(d => d.geojson && (d.geojson.type === 'Polygon' || d.geojson.type === 'MultiPolygon'));
+    if (!nomResult) {
+      toast('Brak obszaru dla tego miejsca', 'error');
+      btn.textContent = 'Szukaj';
+      return;
+    }
 
-  catOrder.forEach(cat => {
-    if (!categories[cat]) return;
+    let finalGeoJson = nomResult.geojson;
     
-    const catHeader = document.createElement('div');
-    catHeader.style.fontSize = '10px';
-    catHeader.style.fontWeight = '700';
-    catHeader.style.color = 'var(--text-muted)';
-    catHeader.style.margin = '10px 0 6px 4px';
-    catHeader.style.textTransform = 'uppercase';
-    catHeader.style.letterSpacing = '1px';
-    catHeader.textContent = cat;
-    grid.appendChild(catHeader);
-
-    categories[cat].forEach(map => {
-      const card = document.createElement('div');
-      card.className = 'map-card' + (map.id===state.activeMapId?' active':'');
-      card.dataset.id = map.id;
-      const img = document.createElement('img');
-      img.className='map-thumb'; img.alt=map.name;
-      const b64 = (typeof B64_IMAGES !== 'undefined') ? B64_IMAGES[map.src.split('/').pop()] : null;
-      img.src = mapImages[map.id]?.src || b64 || map.src;
-      img.onerror = () => { img.style.display='none'; };
-      const info = document.createElement('div'); info.className='map-card-info';
-      info.innerHTML = `<div class="map-card-name">${map.emoji} ${map.name}</div><div class="map-card-sub">${map.sub}</div>`;
-      const dot = document.createElement('div'); dot.className='active-dot';
-      card.append(img, info, dot);
-      card.addEventListener('click', () => selectMap(map.id));
-      grid.appendChild(card);
-    });
-  });
+    // Używamy bazy Natural Earth, by unikać granic morskich (terytorialnych)
+    // tylko jeśli wyszukiwany obiekt to państwo (country)
+    let countryCode = null;
+    if (nomResult.addresstype === 'country' && nomResult.address && nomResult.address.country_code) {
+      countryCode = nomResult.address.country_code.toUpperCase();
+    }
+    
+    if (countryCode) {
+      if (!globalCountriesGeoJson) {
+        try {
+          const geoRes = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
+          if (geoRes.ok) globalCountriesGeoJson = await geoRes.json();
+        } catch(err) {
+          console.warn('Fallback to Nominatim borders', err);
+        }
+      }
+      
+      if (globalCountriesGeoJson && globalCountriesGeoJson.features) {
+        const feature = globalCountriesGeoJson.features.find(f => f.properties['ISO3166-1-Alpha-2'] === countryCode);
+        if (feature && feature.geometry) {
+          finalGeoJson = feature.geometry;
+        }
+      }
+    }
+    
+    showCustomCountry(finalGeoJson, query);
+    toast(`Znaleziono: ${query}`, 'success');
+  } catch (e) {
+    console.error(e);
+    toast('Błąd wyszukiwania', 'error');
+  }
+  btn.textContent = 'Szukaj';
 }
 
-function selectMap(id) {
-  state.activeMapId = id;
-  cancelAddingMode();
-  zoomLevel=1; panX=0; panY=0; updateTransform();
-  document.querySelectorAll('.map-card').forEach(c => c.classList.toggle('active', c.dataset.id===id));
-  fitCanvas(); render(); closeAutocomplete();
+// ── GENERATOR GRADIENTU I KOLORÓW ─────────────────────────────────────────────
+function darkenHex(hex, percent) {
+  let r = parseInt(hex.substring(1,3), 16);
+  let g = parseInt(hex.substring(3,5), 16);
+  let b = parseInt(hex.substring(5,7), 16);
+  r = Math.max(0, Math.floor(r * (1 - percent)));
+  g = Math.max(0, Math.floor(g * (1 - percent)));
+  b = Math.max(0, Math.floor(b * (1 - percent)));
+  return '#' + [r,g,b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function ensureGradientPattern(colorId, pal) {
+  if (!map) return null;
+  const patternId = 'grad-' + colorId;
+  if (!map.hasImage(patternId)) {
+    const size = 2048; // Zwiększony do 2048 dla płynnego gradientu na całej mapie
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, size); // Pionowy gradient
+    grad.addColorStop(0, pal.c1);
+    grad.addColorStop(1, pal.c2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    try { map.addImage(patternId, canvas); } catch(e) { console.warn(e); return null; }
+  }
+  return patternId;
+}
+
+function showCustomCountry(geojson, name) {
+  state.activeMapId = 'custom';
+  document.querySelectorAll('.map-card').forEach(c => c.classList.remove('active'));
+  
+  // Hide all Positron layers
+  map.getStyle().layers.forEach(layer => {
+    if (layer.id !== 'custom-country-fill' && layer.id !== 'custom-country-line') {
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
+    }
+  });
+
+  const pal = PALETTE[state.mapColor] || PALETTE.brand_white;
+  const patternId = ensureGradientPattern(state.mapColor, pal);
+
+  if (map.getSource('custom-country')) {
+    map.getSource('custom-country').setData(geojson);
+    map.setLayoutProperty('custom-country-fill', 'visibility', 'visible');
+    map.setLayoutProperty('custom-country-line', 'visibility', 'visible');
+  } else {
+    map.addSource('custom-country', {
+      type: 'geojson',
+      data: geojson,
+      tolerance: 0
+    });
+
+    // Main fill
+    map.addLayer({
+      id: 'custom-country-fill',
+      type: 'fill',
+      source: 'custom-country',
+      paint: {
+        'fill-opacity': 1
+      }
+    });
+
+    // Outline
+    map.addLayer({
+      id: 'custom-country-line',
+      type: 'line',
+      source: 'custom-country',
+      paint: {
+        'line-color': pal.c1,
+        'line-width': 1
+      }
+    });
+  }
+
+  // Upewnijmy się, że kolory są zaktualizowane
+  if (patternId) {
+    map.setPaintProperty('custom-country-fill', 'fill-pattern', patternId);
+  } else {
+    map.setPaintProperty('custom-country-fill', 'fill-color', pal.c1);
+  }
+  map.setPaintProperty('custom-country-line', 'line-color', pal.c1);
+
+  // Fly to bbox
+  try {
+    const bbox = turf.bbox(geojson);
+    map.fitBounds(bbox, { padding: 40 });
+  } catch(e) { console.warn(e); }
+  
+  render();
+}
+
+document.getElementById('countrySearchBtn')?.addEventListener('click', () => {
+  const q = document.getElementById('countrySearchInput').value.trim();
+  searchCountry(q);
+});
+document.getElementById('countrySearchInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    searchCountry(e.target.value.trim());
+  }
+});
+
+function updateGlobalLandsLayer() {
+  if (!map) return;
+  
+  if (state.showLands && globalCountriesGeoJson) {
+    if (!map.getSource('global-lands')) {
+      map.addSource('global-lands', {
+        type: 'geojson',
+        data: globalCountriesGeoJson,
+        tolerance: 0.5
+      });
+      map.addLayer({
+        id: 'global-lands-fill',
+        type: 'fill',
+        source: 'global-lands',
+        filter: ['!=', ['get', 'ISO_A3'], 'ATA'],
+        paint: {
+          'fill-color': state.envColor,
+          'fill-opacity': 1
+        }
+      }, map.getLayer('custom-country-fill') ? 'custom-country-fill' : undefined);
+    } else {
+      map.setPaintProperty('global-lands-fill', 'fill-color', state.envColor);
+      map.setLayoutProperty('global-lands-fill', 'visibility', 'visible');
+        let beforeId = 'custom-country-fill';
+        if (state.highlightedCountries && state.highlightedCountries.length > 0) {
+          beforeId = state.highlightedCountries[0].id + '-fill';
+        }
+        if (map.getLayer(beforeId)) {
+          map.moveLayer('global-lands-fill', beforeId);
+        }
+      }
+    } else {
+      if (map.getLayer('global-lands-fill')) {
+        map.setLayoutProperty('global-lands-fill', 'visibility', 'none');
+      }
+    }
+}
+
+document.getElementById('toggleLandsBtn')?.addEventListener('click', async (e) => {
+  state.showLands = !state.showLands;
+  e.target.textContent = state.showLands ? 'Ukryj lądy' : 'Pokaż lądy';
+  e.target.classList.toggle('active', state.showLands);
+  document.getElementById('envColorSelector').style.display = state.showLands ? 'flex' : 'none';
+  
+  if (state.showLands && !globalCountriesGeoJson) {
+    const btnText = e.target.textContent;
+    e.target.textContent = 'Pobieranie...';
+    try {
+      const geoRes = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
+      if (geoRes.ok) globalCountriesGeoJson = await geoRes.json();
+    } catch(err) {
+      console.warn(err);
+      toast('Nie udało się pobrać lądów', 'error');
+    }
+    e.target.textContent = btnText;
+  }
+  
+  updateGlobalLandsLayer();
+});
+
+document.getElementById('envColorSelector')?.addEventListener('click', (e) => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#envColorSelector button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  state.envColor = e.target.dataset.envcolor;
+  updateGlobalLandsLayer();
+});
+
+// ── PODŚWIETLONE PAŃSTWA ──────────────────────────────────────────────────────
+if (!state.highlightedCountries) state.highlightedCountries = [];
+let highlightColor = 'purple';
+
+document.getElementById('highlightColorRow')?.addEventListener('click', (e) => {
+  const sw = e.target.closest('[data-hcolor]'); if (!sw) return;
+  document.querySelectorAll('#highlightColorRow [data-hcolor]').forEach(s => s.classList.remove('selected'));
+  sw.classList.add('selected');
+  highlightColor = sw.dataset.hcolor;
+});
+
+document.getElementById('highlightCountryBtn')?.addEventListener('click', () => {
+  const inp = document.getElementById('highlightCountryInput');
+  const q = inp?.value.trim();
+  if (q) addHighlightCountry(q);
+});
+
+document.getElementById('highlightCountryInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const inp = e.target;
+    const q = inp.value.trim();
+    if (q) addHighlightCountry(q);
+  }
+});
+
+async function addHighlightCountry(query) {
+  if (!query) return;
+  toast('Szukam: ' + query + '...', 'info');
+  try {
+    if (!globalCountriesGeoJson) {
+      const geoRes = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
+      if (geoRes.ok) globalCountriesGeoJson = await geoRes.json();
+    }
+
+    // Try to match from local geojson first
+    let geojson = null;
+    if (globalCountriesGeoJson) {
+      const q = query.toLowerCase();
+      const feat = globalCountriesGeoJson.features.find(f =>
+        (f.properties.ADMIN || '').toLowerCase().includes(q) ||
+        (f.properties.NAME || '').toLowerCase().includes(q) ||
+        (f.properties.ISO_A2 || '').toLowerCase() === q ||
+        (f.properties.ISO_A3 || '').toLowerCase() === q
+      );
+      if (feat) geojson = { type: 'FeatureCollection', features: [feat] };
+    }
+
+    // Fallback to Nominatim
+    if (!geojson) {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&polygon_geojson=1&polygon_threshold=0.001&format=json&limit=3&email=generator@example.com`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const r = data.find(d => d.geojson && (d.geojson.type === 'Polygon' || d.geojson.type === 'MultiPolygon'));
+      if (r) geojson = { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: r.geojson, properties: { ADMIN: query } }] };
+    }
+
+    if (!geojson) { toast('Nie znaleziono: ' + query, 'error'); return; }
+
+    const id = 'hl_' + Date.now();
+    const entry = { id, name: query, color: highlightColor, geojson };
+    state.highlightedCountries.push(entry);
+    drawHighlightLayer(entry);
+    buildHighlightList();
+    document.getElementById('highlightCountryInput').value = '';
+    toast('Dodano: ' + query, 'success');
+  } catch(err) {
+    console.error(err);
+    toast('Błąd pobierania danych', 'error');
+  }
+}
+
+function drawHighlightLayer(entry) {
+  if (!map) return;
+  const srcId = entry.id;
+  const fillId = entry.id + '-fill';
+  const lineId = entry.id + '-line';
+
+  // Use the same color palette as main country
+  const pal = PALETTE[entry.color] || PALETTE.brand_green;
+  const patternId = ensureGradientPattern(entry.color, pal);
+
+  if (!map.getSource(srcId)) {
+    map.addSource(srcId, { type: 'geojson', data: entry.geojson, tolerance: 0.5 });
+  }
+  if (!map.getLayer(fillId)) {
+    map.addLayer({
+      id: fillId, type: 'fill', source: srcId,
+      paint: { 'fill-opacity': 1 }
+    }, map.getLayer('custom-country-fill') ? 'custom-country-fill' : undefined);
+  }
+  if (!map.getLayer(lineId)) {
+    map.addLayer({
+      id: lineId, type: 'line', source: srcId,
+      paint: { 'line-color': pal.c1, 'line-width': 1 }
+    }, map.getLayer('custom-country-fill') ? 'custom-country-fill' : undefined);
+  }
+
+  // Apply gradient pattern or flat color
+  try {
+    if (patternId) {
+      map.setPaintProperty(fillId, 'fill-pattern', patternId);
+    } else {
+      map.setPaintProperty(fillId, 'fill-color', pal.c1);
+    }
+    map.setPaintProperty(lineId, 'line-color', pal.c1);
+  } catch(e) { console.warn(e); }
+}
+
+function removeHighlightLayer(id) {
+  if (!map) return;
+  [id + '-fill', id + '-line'].forEach(lid => { if (map.getLayer(lid)) map.removeLayer(lid); });
+  if (map.getSource(id)) map.removeSource(id);
+}
+
+function buildHighlightList() {
+  const list = document.getElementById('highlightedCountriesList');
+  if (!list) return;
+  list.innerHTML = '';
+  (state.highlightedCountries || []).forEach(entry => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:12px;';
+    const dot = document.createElement('div');
+    dot.style.cssText = `width:12px;height:12px;border-radius:50%;background:${entry.color};flex-shrink:0;`;
+    const lbl = document.createElement('span');
+    lbl.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    lbl.textContent = entry.name;
+    const del = document.createElement('button');
+    del.textContent = '×';
+    del.style.cssText = 'background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0 2px;font-size:14px;';
+    del.title = 'Usuń';
+    del.addEventListener('click', () => {
+      removeHighlightLayer(entry.id);
+      state.highlightedCountries = state.highlightedCountries.filter(e => e.id !== entry.id);
+      buildHighlightList();
+    });
+    row.append(dot, lbl, del);
+    list.appendChild(row);
+  });
 }
 
 // ── AUTOCOMPLETE ──────────────────────────────────────────────────────────────
@@ -1402,8 +1709,34 @@ if (labelInput) {
     if (e.key==='ArrowDown')  { acHighlight=Math.min(acHighlight+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('active',i===acHighlight)); e.preventDefault(); }
     else if (e.key==='ArrowUp')   { acHighlight=Math.max(acHighlight-1,0); items.forEach((el,i)=>el.classList.toggle('active',i===acHighlight)); e.preventDefault(); }
     else if (e.key==='Enter' && acHighlight>=0) { items[acHighlight]?.click(); e.preventDefault(); }
+    else if (e.key==='Enter' && acHighlight<0) {
+      e.preventDefault();
+      searchMarkerCoords(labelInput.value.trim());
+    }
     else if (e.key==='Escape') closeAutocomplete();
   });
+}
+
+async function searchMarkerCoords(query) {
+  if (!query) return;
+  toast('Szukam współrzędnych...', 'info');
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&email=generator@example.com`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data && data.length > 0) {
+      const lat = parseFloat(data[0].lat);
+      const lon = parseFloat(data[0].lon);
+      placeMarker(lon, lat, query);
+      toast('Znaleziono i dodano znacznik: ' + query, 'success');
+      closeAutocomplete();
+    } else {
+      toast('Nie znaleziono współrzędnych dla: ' + query, 'error');
+    }
+  } catch(e) {
+    console.error(e);
+    toast('Błąd pobierania współrzędnych', 'error');
+  }
 }
 
 function showAutocomplete(cities) {
@@ -1432,10 +1765,6 @@ document.getElementById('showAllCitiesBtn')?.addEventListener('click', e => {
 function selectCity(city) {
   if (labelInput) labelInput.value = city.name;
   updateLabelPreview(); closeAutocomplete();
-  const dw = canvas.width  - MAP_PADDING*2;
-  const dh = canvas.height - MAP_PADDING*2;
-  const x  = Math.round(MAP_PADDING + city.rx * dw);
-  const y  = Math.round(MAP_PADDING + city.ry * dh);
   if (city.type==='lotnisko'||city.type==='port') {
     state.markerType = city.type;
     document.querySelectorAll('#markerTypeOptions .font-opt').forEach(o=>o.classList.toggle('selected', o.dataset.type===city.type));
@@ -1443,7 +1772,7 @@ function selectCity(city) {
     state.markerType='default';
     document.querySelectorAll('#markerTypeOptions .font-opt').forEach(o=>o.classList.toggle('selected', o.dataset.type==='default'));
   }
-  placeMarker(x, y, city.name);
+  placeMarker(city.lng, city.lat, city.name);
 }
 
 // ── PODGLĄD ETYKIETY ──────────────────────────────────────────────────────────
@@ -1497,7 +1826,25 @@ document.getElementById('sidebarTabs')?.addEventListener('click', e => {
 document.getElementById('mapColorRow')?.addEventListener('click', e => {
   const sw = e.target.closest('.color-swatch'); if (!sw) return;
   document.querySelectorAll('#mapColorRow .color-swatch').forEach(s=>s.classList.remove('selected'));
-  sw.classList.add('selected'); state.mapColor=sw.dataset.color; render();
+  sw.classList.add('selected'); state.mapColor=sw.dataset.color; 
+  
+  try { render(); } catch(err) { console.warn(err); }
+  
+  if (map && map.getLayer('custom-country-fill')) {
+    try {
+      const pal = PALETTE[state.mapColor] || PALETTE.brand_white;
+      const patternId = ensureGradientPattern(state.mapColor, pal);
+      if (patternId) {
+        map.setPaintProperty('custom-country-fill', 'fill-pattern', patternId);
+      } else {
+        // Fallback do solid color jeśli gradient padnie
+        map.setPaintProperty('custom-country-fill', 'fill-color', pal.c1);
+      }
+      map.setPaintProperty('custom-country-line', 'line-color', pal.c1);
+    } catch(err) {
+      console.warn('Color apply error:', err);
+    }
+  }
 });
 
 // ── KOLOR IKONY ───────────────────────────────────────────────────────────────
@@ -1615,10 +1962,10 @@ document.getElementById('clearAllBtn')?.addEventListener('click', () => {
 });
 
 // ── DODAWANIE / USUWANIE ZNACZNIKÓW ──────────────────────────────────────────
-function placeMarker(x, y, label) {
+function placeMarker(lng, lat, label) {
   const id = 'm_' + Date.now();
   saveState();
-  state.markers.push({ id, mapId: state.activeMapId, x, y, label: label||'', size: state.markerSize, bgColor: state.bgColor, fontSize: state.fontSize, markerType: state.markerType, markerColor: state.markerColor, labelPos: state.labelPos });
+  state.markers.push({ id, mapId: state.activeMapId, lng, lat, label: label||'', size: state.markerSize, bgColor: state.bgColor, fontSize: state.fontSize, markerType: state.markerType, markerColor: state.markerColor, labelPos: state.labelPos, baseZoom: map ? map.getZoom() : 4 });
   state.selectedId = id;
   cancelAddingMode(); buildMarkersList(); updateConnDropdowns(); render();
   toast(`Dodano: "${label||'(bez podpisu)'}"`, 'success');
@@ -1852,6 +2199,7 @@ document.getElementById('applyStyleToAllMarkersBtn')?.addEventListener('click', 
       m.labelPos = state.labelPos;
       m.size = state.markerSize;
       m.fontSize = state.fontSize;
+      m.baseZoom = map ? map.getZoom() : 4;
       count++;
     }
   });
@@ -1876,35 +2224,240 @@ document.getElementById('applyStyleToAllConnsBtn')?.addEventListener('click', ()
   toast(`Zastosowano styl do ${count} połączeń`, 'success');
 });
 
-// ── EKSPORT PNG ───────────────────────────────────────────────────────────────
-document.querySelectorAll('.exportBtn').forEach(b => b.addEventListener('click', exportPNG));
+// ── EXPORT MODAL ─────────────────────────────────────────────────────────────
+let cropBox = { x:0, y:0, w:1, h:1 };
+let expDrag = null;
+let lassoPolygons = [];
+let lassoDrawing = false;
+let currentLasso = [];
 
-function exportPNG() {
-  // Render to main canvas without selection highlight, then download it
+document.querySelectorAll('.exportBtn').forEach(b => b.addEventListener('click', openExportModal));
+
+function openExportModal() {
+  cropBox = { x:0, y:0, w:1, h:1 };
+  lassoPolygons = [];
+  currentLasso = [];
+  lassoDrawing = false;
+
   const saved = state.selectedId;
   state.selectedId = null;
   render();
+  state.selectedId = saved;
 
-  const mapName = (BUILTIN_MAPS.find(m => m.id === state.activeMapId) || { name: 'mapa' }).name;
-  const fname   = `mapka_${mapName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.png`;
+  const mapCv = map && map.getCanvas ? map.getCanvas() : null;
+  const prev  = document.getElementById('expPrev');
+  const srcW  = canvas.width, srcH = canvas.height;
+  prev.width  = srcW; prev.height = srcH;
+  const pCtx  = prev.getContext('2d');
+  if (mapCv) pCtx.drawImage(mapCv, 0, 0, srcW, srcH);
+  pCtx.drawImage(canvas, 0, 0, srcW, srcH);
 
-  try {
-    canvas.toBlob(blob => {
-      if (!blob) { toast('Błąd: nie można wyeksportować', 'error'); return; }
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement('a');
-      a.download = fname; a.href = url;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast(`Eksportowano: ${fname}`, 'success');
-    }, 'image/png');
-  } catch(err) {
-    toast('Błąd eksportu: ' + err.message, 'error');
-  } finally {
-    state.selectedId = saved;
-    render();
-  }
+  document.getElementById('exportModal').classList.add('visible');
+  setTimeout(function() { updateCropUI(); initLassoCanvas(); }, 80);
 }
+
+function closeExportModal() {
+  document.getElementById('exportModal').classList.remove('visible');
+  lassoPolygons = []; currentLasso = []; lassoDrawing = false;
+  render();
+}
+
+function updateCropUI() {
+  const wrap   = document.getElementById('expPreviewWrap');
+  const rectEl = document.getElementById('expCropRect');
+  const label  = document.getElementById('expDimLabel');
+  if (!wrap || !rectEl) return;
+  const pw = wrap.clientWidth, ph = wrap.clientHeight;
+  rectEl.style.left   = cropBox.x * pw + 'px';
+  rectEl.style.top    = cropBox.y * ph + 'px';
+  rectEl.style.width  = cropBox.w * pw + 'px';
+  rectEl.style.height = cropBox.h * ph + 'px';
+  const prev = document.getElementById('expPrev');
+  const srcW = prev.width || 1, srcH = prev.height || 1;
+  const ow = Math.round(cropBox.w * srcW), oh = Math.round(cropBox.h * srcH);
+  if (label) label.textContent = (cropBox.w >= 0.999 && cropBox.h >= 0.999)
+    ? ('Pelny: ' + srcW + 'x' + srcH + 'px')
+    : (ow + 'x' + oh + 'px');
+}
+
+function initLassoCanvas() {
+  const lCv = document.getElementById('expLassoCv');
+  const wrap = document.getElementById('expPreviewWrap');
+  if (!lCv || !wrap) return;
+  lCv.width  = wrap.clientWidth;
+  lCv.height = wrap.clientHeight;
+  drawLassoOverlay();
+}
+
+function drawLassoOverlay() {
+  const lCv = document.getElementById('expLassoCv');
+  if (!lCv) return;
+  const lCtx = lCv.getContext('2d');
+  lCtx.clearRect(0, 0, lCv.width, lCv.height);
+  const prev = document.getElementById('expPrev');
+  const scaleX = lCv.width  / (prev.width  || 1);
+  const scaleY = lCv.height / (prev.height || 1);
+
+  function drawPoly(pts, strokeColor, fillColor) {
+    if (pts.length < 2) return;
+    lCtx.beginPath();
+    lCtx.moveTo(pts[0].x * scaleX, pts[0].y * scaleY);
+    for (var i = 1; i < pts.length; i++) lCtx.lineTo(pts[i].x * scaleX, pts[i].y * scaleY);
+    lCtx.closePath();
+    lCtx.fillStyle = fillColor; lCtx.fill();
+    lCtx.strokeStyle = strokeColor; lCtx.lineWidth = 2;
+    lCtx.setLineDash([5, 4]); lCtx.stroke(); lCtx.setLineDash([]);
+  }
+
+  lassoPolygons.forEach(function(pts) { drawPoly(pts, '#ef4444', 'rgba(239,68,68,0.35)'); });
+  if (currentLasso.length > 1) drawPoly(currentLasso, '#f97316', 'rgba(249,115,22,0.2)');
+}
+
+function onExpMove(e) {
+  if (!expDrag) return;
+  const d = expDrag;
+  const dx = (e.clientX - d.sx) / d.wr.width;
+  const dy = (e.clientY - d.sy) / d.wr.height;
+  const MIN = 0.04;
+  let x = d.orig.x, y = d.orig.y, w = d.orig.w, h = d.orig.h;
+  if (d.type === 'move') {
+    x = Math.max(0, Math.min(1 - w, x + dx));
+    y = Math.max(0, Math.min(1 - h, y + dy));
+  } else {
+    var dir = d.dir;
+    if (dir.indexOf('e') >= 0) w = Math.max(MIN, Math.min(1 - x, w + dx));
+    if (dir.indexOf('s') >= 0) h = Math.max(MIN, Math.min(1 - y, h + dy));
+    if (dir.indexOf('w') >= 0) { var nx = Math.max(0, Math.min(x+w-MIN, x+dx)); w = w+x-nx; x = nx; }
+    if (dir.indexOf('n') >= 0) { var ny = Math.max(0, Math.min(y+h-MIN, y+dy)); h = h+y-ny; y = ny; }
+  }
+  cropBox = { x:x, y:y, w:w, h:h };
+  updateCropUI();
+}
+
+function onExpUp() {
+  expDrag = null;
+  document.removeEventListener('pointermove', onExpMove);
+}
+
+function doExport() {
+  const mapCv = map && map.getCanvas ? map.getCanvas() : null;
+  const srcW = canvas.width, srcH = canvas.height;
+
+  const saved = state.selectedId;
+  state.selectedId = null;
+  render();
+  state.selectedId = saved;
+
+  const comp = document.createElement('canvas');
+  comp.width = srcW; comp.height = srcH;
+  const cCtx = comp.getContext('2d');
+  if (mapCv) cCtx.drawImage(mapCv, 0, 0, srcW, srcH);
+  cCtx.drawImage(canvas, 0, 0, srcW, srcH);
+
+  if (lassoPolygons.length > 0) {
+    cCtx.globalCompositeOperation = 'destination-out';
+    lassoPolygons.forEach(function(pts) {
+      cCtx.beginPath();
+      cCtx.moveTo(pts[0].x, pts[0].y);
+      for (var i = 1; i < pts.length; i++) cCtx.lineTo(pts[i].x, pts[i].y);
+      cCtx.closePath();
+      cCtx.fill();
+    });
+    cCtx.globalCompositeOperation = 'source-over';
+  }
+
+  var cx = Math.round(cropBox.x * srcW), cy = Math.round(cropBox.y * srcH);
+  var cw = Math.max(1, Math.round(cropBox.w * srcW)), ch = Math.max(1, Math.round(cropBox.h * srcH));
+
+  var minPx = 1500;
+  var scale  = Math.max(1, minPx / Math.max(cw, ch));
+  var outW   = Math.round(cw * scale), outH = Math.round(ch * scale);
+
+  var out = document.createElement('canvas');
+  out.width = outW; out.height = outH;
+  var oCtx = out.getContext('2d');
+  oCtx.imageSmoothingEnabled = true;
+  oCtx.imageSmoothingQuality = 'high';
+  oCtx.drawImage(comp, cx, cy, cw, ch, 0, 0, outW, outH);
+
+  var mapName = (BUILTIN_MAPS.find(function(m) { return m.id === state.activeMapId; }) || { name:'mapa' }).name;
+  var fname = 'mapka_' + mapName.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now() + '.png';
+  out.toBlob(function(blob) {
+    if (!blob) { toast('Blad eksportu', 'error'); return; }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.download = fname; a.href = url;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    toast('Eksportowano ' + outW + 'x' + outH + 'px', 'success');
+  }, 'image/png');
+
+  render();
+  closeExportModal();
+}
+
+// Init modal events after DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('expCancelBtn')?.addEventListener('click', closeExportModal);
+
+  document.getElementById('expResetCropBtn')?.addEventListener('click', function() {
+    cropBox = { x:0, y:0, w:1, h:1 }; updateCropUI();
+  });
+
+  document.getElementById('expClearLassoBtn')?.addEventListener('click', function() {
+    lassoPolygons = []; currentLasso = []; drawLassoOverlay();
+  });
+
+  document.getElementById('expConfirmBtn')?.addEventListener('click', doExport);
+
+  var cropRectEl = document.getElementById('expCropRect');
+  if (cropRectEl) {
+    cropRectEl.addEventListener('pointerdown', function(e) {
+      if (e.target.classList.contains('exp-handle')) return;
+      e.preventDefault(); e.stopPropagation();
+      var wrap = document.getElementById('expPreviewWrap');
+      expDrag = { type:'move', sx:e.clientX, sy:e.clientY, orig:{...cropBox}, wr:wrap.getBoundingClientRect() };
+      document.addEventListener('pointermove', onExpMove);
+      document.addEventListener('pointerup', onExpUp, { once:true });
+    });
+  }
+
+  document.querySelectorAll('.exp-handle').forEach(function(h) {
+    h.addEventListener('pointerdown', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      var wrap = document.getElementById('expPreviewWrap');
+      expDrag = { type:'resize', dir:h.dataset.dir, sx:e.clientX, sy:e.clientY, orig:{...cropBox}, wr:wrap.getBoundingClientRect() };
+      document.addEventListener('pointermove', onExpMove);
+      document.addEventListener('pointerup', onExpUp, { once:true });
+    });
+  });
+
+  var lCv = document.getElementById('expLassoCv');
+  if (lCv) {
+    lCv.addEventListener('pointerdown', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      lassoDrawing = true;
+      currentLasso = [];
+      var r = lCv.getBoundingClientRect();
+      var prev = document.getElementById('expPrev');
+      lCv.setPointerCapture(e.pointerId);
+      currentLasso.push({ x:(e.clientX-r.left)/r.width*prev.width, y:(e.clientY-r.top)/r.height*prev.height });
+    });
+    lCv.addEventListener('pointermove', function(e) {
+      if (!lassoDrawing) return;
+      var r = lCv.getBoundingClientRect();
+      var prev = document.getElementById('expPrev');
+      currentLasso.push({ x:(e.clientX-r.left)/r.width*prev.width, y:(e.clientY-r.top)/r.height*prev.height });
+      drawLassoOverlay();
+    });
+    lCv.addEventListener('pointerup', function() {
+      if (!lassoDrawing) return;
+      lassoDrawing = false;
+      if (currentLasso.length > 5) lassoPolygons.push([...currentLasso]);
+      currentLasso = [];
+      drawLassoOverlay();
+    });
+  }
+});
 
 // ── SKRÓTY KLAWISZOWE ─────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
@@ -1930,5 +2483,59 @@ updateConnDropdowns();
 buildConnsList();
 initImages();
 </script>
+<!-- ── EXPORT MODAL ─────────────────────────────────────────────────────── -->
+<div id="exportModal">
+  <div class="export-modal-box">
+    <div class="export-modal-title">&#x1F4BE; Ustawienia eksportu PNG</div>
+    <div class="export-modal-body">
+      <div class="export-preview-wrap" id="expPreviewWrap">
+        <canvas id="expPrev" style="width:100%;height:100%;display:block;"></canvas>
+        <canvas id="expLassoCv" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none;">
+          <div id="expCropRect" class="crop-rect" style="pointer-events:none;">
+            <style>
+              .crop-edge { position:absolute; pointer-events:all; cursor:move; }
+              .crop-edge.n { top:-5px; left:0; right:0; height:10px; }
+              .crop-edge.s { bottom:-5px; left:0; right:0; height:10px; }
+              .crop-edge.e { right:-5px; top:0; bottom:0; width:10px; }
+              .crop-edge.w { left:-5px; top:0; bottom:0; width:10px; }
+            </style>
+            <div class="crop-edge n"></div>
+            <div class="crop-edge s"></div>
+            <div class="crop-edge e"></div>
+            <div class="crop-edge w"></div>
+            <div class="crop-handle exp-handle nw" data-dir="nw" style="pointer-events:all;"></div>
+            <div class="crop-handle exp-handle n"  data-dir="n"  style="pointer-events:all;"></div>
+            <div class="crop-handle exp-handle ne" data-dir="ne" style="pointer-events:all;"></div>
+            <div class="crop-handle exp-handle e"  data-dir="e"  style="pointer-events:all;"></div>
+            <div class="crop-handle exp-handle se" data-dir="se" style="pointer-events:all;"></div>
+            <div class="crop-handle exp-handle s"  data-dir="s"  style="pointer-events:all;"></div>
+            <div class="crop-handle exp-handle sw" data-dir="sw" style="pointer-events:all;"></div>
+            <div class="crop-handle exp-handle w"  data-dir="w"  style="pointer-events:all;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="export-sidebar">
+        <div>
+          <div class="export-section-title">Ramka kadrowania</div>
+          <div class="export-dim-label" id="expDimLabel">Pelny ekran</div>
+          <button class="btn btn-outline" id="expResetCropBtn" style="width:100%;font-size:12px;padding:6px;margin-bottom:8px;">&#8635; Reset ramki</button>
+        </div>
+        <div>
+          <div class="export-section-title">&#x1FA84; Gumka lasso</div>
+          <p style="font-size:11px;color:var(--text-muted);margin:4px 0 8px;line-height:1.4;">Narysuj obszar na podgladzie freehand &ndash; zostanie wyciety z PNG (przezroczysty).</p>
+          <button class="btn btn-outline" id="expClearLassoBtn" style="width:100%;font-size:12px;padding:6px;">&#x1F5D1;&#xFE0F; Wyczysc zaznaczenia</button>
+        </div>
+        <div style="margin-top:8px;">
+          <p style="font-size:11px;color:var(--text-muted);">Eksport min. 1500px, przezroczyste tlo.</p>
+        </div>
+      </div>
+    </div>
+    <div class="export-modal-footer">
+      <button class="btn btn-outline" id="expCancelBtn">Anuluj</button>
+      <button class="btn btn-primary" id="expConfirmBtn">&#x1F4BE; Eksportuj PNG</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
