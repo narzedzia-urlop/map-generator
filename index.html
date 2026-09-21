@@ -298,6 +298,85 @@
       padding: 4px 0;
     }
 
+    /* PROJECTS */
+    .project-card {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .project-card:hover {
+      border-color: var(--accent);
+      background: rgba(74,222,128,0.04);
+    }
+    .project-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .project-card-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-word;
+      line-height: 1.35;
+      flex: 1;
+    }
+    .project-card-date {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+    .project-card-badges {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .project-badge {
+      font-size: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 2px 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .project-card-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .project-card-actions .btn {
+      flex: 1;
+      padding: 5px 6px;
+      font-size: 11px;
+    }
+    .project-dropzone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 14px 10px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(255,255,255,0.01);
+      transition: all 0.2s ease;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .project-dropzone:hover, .project-dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(74,222,128,0.08);
+      color: var(--text);
+    }
+
     ::-webkit-scrollbar { width:5px; }
     ::-webkit-scrollbar-track { background:transparent; }
     ::-webkit-scrollbar-thumb { background:var(--border); border-radius:5px; }
@@ -307,9 +386,13 @@
 
 <header>
   <div class="logo-icon">🗺️</div>
-  <div>
+  <div style="flex:1;">
     <h1>Generator Mapek</h1>
     <p>Twórz mapki prezentacyjne · eksport PNG z przezroczystym tłem</p>
+  </div>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <button class="btn btn-outline" id="headerProjectsBtn" style="padding:6px 12px; font-size:12px;" title="Przejdź do zapisanych projektów">📁 Projekty</button>
+    <button class="btn btn-outline" id="headerSaveBtn" style="padding:6px 12px; font-size:12px;" title="Szybki zapis projektu w przeglądarce">💾 Zapisz</button>
   </div>
 </header>
 
@@ -323,6 +406,7 @@
       <button class="tab-btn active" data-tab="tab-map">🗺️ Mapa</button>
       <button class="tab-btn" data-tab="tab-marker">📍 Znacznik</button>
       <button class="tab-btn" data-tab="tab-lines">🔗 Połączenia</button>
+      <button class="tab-btn" data-tab="tab-projects">📁 Projekty</button>
     </div>
 
     <!-- TAB 1: MAPA & EKSPORT -->
@@ -635,6 +719,52 @@
         <div class="markers-list" id="connsList">
           <div class="empty-state">Brak połączeń</div>
         </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: PROJEKTY (ZAPIS / ODCZYT) -->
+    <div class="tab-content" id="tab-projects">
+      <div class="sidebar-section">
+        <span class="sidebar-label">Bieżący projekt</span>
+        <div class="input-row">
+          <span class="input-label">Nazwa projektu</span>
+          <input type="text" class="text-input" id="projectNameInput" placeholder="np. Grecja – Plan Podróży 2026" autocomplete="off" />
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <button class="btn btn-primary" id="saveProjectBrowserBtn" style="width:100%;">
+            💾 Zapisz w przeglądarce
+          </button>
+          <button class="btn btn-outline" id="exportProjectJsonBtn" style="width:100%;">
+            📥 Pobierz plik projektu (.json)
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <span class="sidebar-label">Wczytaj plik z dysku</span>
+        <input type="file" id="projectFileInput" accept=".json,.mapka.json" style="display:none;" />
+        <div class="project-dropzone" id="projectDropzone">
+          <div style="font-size:22px; margin-bottom:4px;">📂</div>
+          <div style="font-weight:600; margin-bottom:2px; color:var(--text);">Kliknij lub upuść plik .json</div>
+          <div style="font-size:10px;">Otwórz wyeksportowany projekt mapy</div>
+        </div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span class="sidebar-label" style="margin-bottom:0;">Zapisane projekty</span>
+          <button class="btn btn-danger" id="clearAllProjectsBtn" style="padding:2px 7px; font-size:10px;" title="Wyczyść wszystkie zapisane projekty w przeglądarce">🗑️ Wyczyść</button>
+        </div>
+        <div class="markers-list" id="savedProjectsList" style="max-height:300px;">
+          <div class="empty-state">Brak zapisanych projektów</div>
+        </div>
+        <button class="btn btn-outline" id="newProjectBtn" style="width:100%; margin-top:10px; font-size:12px;">
+          ➕ Nowy pusty projekt
+        </button>
       </div>
     </div>
 
@@ -952,6 +1082,10 @@ const markerImgs = {};
 // ── STAN APLIKACJI ────────────────────────────────────────────────────────────
 const state = {
   activeMapId: 'greece',
+  currentProjectName: '',
+  customCountry: null,
+  customCountryName: '',
+  highlightedCountries: [],
   markers:     [],
   connections: [],
   addingMode:  false,
@@ -1429,6 +1563,13 @@ function ensureGradientPattern(colorId, pal) {
 
 function showCustomCountry(geojson, name) {
   state.activeMapId = 'custom';
+  state.customCountry = { geojson, name };
+  state.customCountryName = name || '';
+  if (!state.currentProjectName || state.currentProjectName.startsWith('Mapa - ') || state.currentProjectName === 'Moja mapa') {
+    state.currentProjectName = name ? `Mapa - ${name}` : 'Moja mapa';
+    const nameInput = document.getElementById('projectNameInput');
+    if (nameInput) nameInput.value = state.currentProjectName;
+  }
   document.querySelectorAll('.map-card').forEach(c => c.classList.remove('active'));
   
   // Hide all Positron layers
@@ -2576,11 +2717,544 @@ function toast(msg, type='success') {
   tc.appendChild(t); setTimeout(()=>t.remove(),3100);
 }
 
+// ── PROJEKTY (ZAPIS / ODCZYT / EKSPORT JSON) ──────────────────────────────────
+const PROJECTS_STORAGE_KEY = 'map_generator_saved_projects_v1';
+
+function getSavedProjects() {
+  try {
+    const raw = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.error('Błąd odczytu projektów z localStorage:', err);
+    return [];
+  }
+}
+
+function saveProjectsList(list) {
+  try {
+    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(list));
+  } catch (err) {
+    console.error('Błąd zapisu projektów do localStorage:', err);
+    toast('Błąd pamięci przeglądarki (localStorage)', 'error');
+  }
+}
+
+function serializeCurrentProject(customName) {
+  const nameInput = document.getElementById('projectNameInput');
+  const finalName = customName || (nameInput ? nameInput.value.trim() : '') || state.currentProjectName || (state.customCountryName ? `Mapa - ${state.customCountryName}` : 'Moja mapa');
+
+  let viewport = null;
+  if (map) {
+    const center = map.getCenter();
+    viewport = {
+      center: [center.lng, center.lat],
+      zoom: map.getZoom(),
+      pitch: map.getPitch() || 0,
+      bearing: map.getBearing() || 0
+    };
+  }
+
+  return {
+    version: 1,
+    id: 'proj_' + Date.now(),
+    name: finalName,
+    savedAt: new Date().toISOString(),
+    viewport,
+    activeMapId: state.activeMapId,
+    customCountry: state.customCountry ? {
+      geojson: state.customCountry.geojson,
+      name: state.customCountry.name
+    } : null,
+    customCountryName: state.customCountryName || '',
+    mapColor: state.mapColor,
+    showLands: state.showLands,
+    envColor: state.envColor,
+    highlightedCountries: (state.highlightedCountries || []).map(h => ({
+      id: h.id,
+      name: h.name,
+      color: h.color,
+      geojson: h.geojson
+    })),
+    markers: (state.markers || []).map(m => ({
+      id: m.id,
+      mapId: m.mapId,
+      lng: m.lng,
+      lat: m.lat,
+      label: m.label,
+      size: m.size,
+      bgColor: m.bgColor,
+      fontSize: m.fontSize,
+      markerType: m.markerType,
+      markerColor: m.markerColor,
+      labelPos: m.labelPos,
+      baseZoom: m.baseZoom
+    })),
+    connections: (state.connections || []).map(c => ({
+      id: c.id,
+      fromId: c.fromId,
+      toId: c.toId,
+      type: c.type,
+      style: c.style,
+      color: c.color,
+      thickness: c.thickness
+    })),
+    globalScale: state.globalScale,
+    fontSize: state.fontSize,
+    markerSize: state.markerSize,
+    markerType: state.markerType,
+    markerColor: state.markerColor,
+    bgColor: state.bgColor,
+    labelPos: state.labelPos,
+    connType: state.connType,
+    connStyle: state.connStyle,
+    connColor: state.connColor,
+    connThickness: state.connThickness
+  };
+}
+
+function saveCurrentProjectToBrowser(customName) {
+  const project = serializeCurrentProject(customName);
+  state.currentProjectName = project.name;
+  const nameInput = document.getElementById('projectNameInput');
+  if (nameInput) nameInput.value = project.name;
+
+  const projects = getSavedProjects();
+  const existingIdx = projects.findIndex(p => p.name.trim().toLowerCase() === project.name.trim().toLowerCase());
+  if (existingIdx >= 0) {
+    projects[existingIdx] = project;
+  } else {
+    projects.unshift(project);
+  }
+
+  saveProjectsList(projects);
+  renderSavedProjectsList();
+  toast(`Zapisano projekt: "${project.name}"`, 'success');
+}
+
+function exportCurrentProjectJson(customName) {
+  const project = serializeCurrentProject(customName);
+  const jsonStr = JSON.stringify(project, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = (project.name || 'mapa').toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/gi, '_').replace(/^_+|_+$/g, '');
+  a.download = `projekt_${safeName || 'mapa'}.json`;
+  a.href = url;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('Pobrano plik projektu .json', 'success');
+}
+
+function loadProjectData(project, showNotification = true) {
+  if (!project || typeof project !== 'object') {
+    toast('Nieprawidłowy format pliku projektu', 'error');
+    return;
+  }
+
+  saveState();
+
+  state.currentProjectName = project.name || 'Moja mapa';
+  const nameInput = document.getElementById('projectNameInput');
+  if (nameInput) nameInput.value = state.currentProjectName;
+
+  // 1. Usunięcie istniejących warstw podświetleń
+  if (state.highlightedCountries && state.highlightedCountries.length > 0) {
+    state.highlightedCountries.forEach(entry => removeHighlightLayer(entry.id));
+  }
+
+  // 2. Przywrócenie koloru mapy
+  state.mapColor = project.mapColor || 'brand_white';
+  document.querySelectorAll('#mapColorRow .color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.dataset.color === state.mapColor);
+  });
+
+  // 3. Przywrócenie otoczenia lądów
+  state.showLands = !!project.showLands;
+  state.envColor = project.envColor || '#475569';
+  const toggleLandsBtn = document.getElementById('toggleLandsBtn');
+  if (toggleLandsBtn) {
+    toggleLandsBtn.textContent = state.showLands ? 'Ukryj lądy' : 'Pokaż lądy';
+    toggleLandsBtn.classList.toggle('active', state.showLands);
+  }
+  const envColorSelector = document.getElementById('envColorSelector');
+  if (envColorSelector) {
+    envColorSelector.style.display = state.showLands ? 'flex' : 'none';
+  }
+  document.querySelectorAll('#envColorSelector .color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.dataset.envcolor === state.envColor);
+  });
+
+  // 4. Przywrócenie skali globalnej
+  state.globalScale = project.globalScale !== undefined ? project.globalScale : 1.0;
+  const globalSlider = document.getElementById('globalScaleSlider');
+  if (globalSlider) globalSlider.value = Math.round(state.globalScale * 100);
+  const globalVal = document.getElementById('globalScaleVal');
+  if (globalVal) globalVal.textContent = Math.round(state.globalScale * 100) + '%';
+
+  // 5. Przywrócenie stylu znaczników domyślnych
+  if (project.markerSize) state.markerSize = project.markerSize;
+  if (project.markerType) state.markerType = project.markerType;
+  if (project.markerColor) state.markerColor = project.markerColor;
+  if (project.bgColor) state.bgColor = project.bgColor;
+  if (project.labelPos) state.labelPos = project.labelPos;
+
+  // 6. Przywrócenie państwa / obszaru
+  state.customCountry = project.customCountry || null;
+  state.customCountryName = project.customCountryName || (project.customCountry ? project.customCountry.name : '');
+  const countrySearchInput = document.getElementById('countrySearchInput');
+  if (countrySearchInput) countrySearchInput.value = state.customCountryName || '';
+
+  if (state.customCountry && state.customCountry.geojson) {
+    showCustomCountry(state.customCountry.geojson, state.customCountry.name);
+  } else if (map && map.getLayer('custom-country-fill')) {
+    map.setLayoutProperty('custom-country-fill', 'visibility', 'none');
+    map.setLayoutProperty('custom-country-line', 'visibility', 'none');
+  }
+
+  // 7. Aktualizacja warstwy lądów
+  updateGlobalLandsLayer();
+
+  // 8. Przywrócenie podświetlonych państw
+  state.highlightedCountries = (project.highlightedCountries || []).map(h => ({
+    id: h.id || ('hl_' + Math.random().toString(36).substr(2, 9)),
+    name: h.name,
+    color: h.color,
+    geojson: h.geojson
+  }));
+  state.highlightedCountries.forEach(entry => drawHighlightLayer(entry));
+  buildHighlightList();
+
+  // 9. Przywrócenie znaczników i połączeń
+  state.markers = (project.markers || []).map(m => ({ ...m }));
+  state.connections = (project.connections || []).map(c => ({ ...c }));
+  state.selectedId = null;
+
+  // 10. Przywrócenie widoku kamery MapLibre
+  if (project.viewport && map) {
+    map.jumpTo({
+      center: project.viewport.center || [0, 20],
+      zoom: project.viewport.zoom !== undefined ? project.viewport.zoom : 1.5,
+      pitch: project.viewport.pitch || 0,
+      bearing: project.viewport.bearing || 0
+    });
+  }
+
+  // 11. Odświeżenie list i podglądu
+  updateLabelPreview();
+  buildMarkersList();
+  updateConnDropdowns();
+  buildConnsList();
+  render();
+
+  if (showNotification) {
+    toast(`Wczytano projekt: "${state.currentProjectName}"`, 'success');
+  }
+}
+
+function deleteSavedProject(id, e) {
+  if (e) e.stopPropagation();
+  const projects = getSavedProjects();
+  const proj = projects.find(p => p.id === id);
+  const name = proj ? proj.name : 'ten projekt';
+  if (!confirm(`Czy na pewno chcesz usunąć projekt "${name}" z pamięci przeglądarki?`)) return;
+
+  const filtered = projects.filter(p => p.id !== id);
+  saveProjectsList(filtered);
+  renderSavedProjectsList();
+  toast(`Projekt "${name}" został usunięty`, 'success');
+}
+
+function renderSavedProjectsList() {
+  const container = document.getElementById('savedProjectsList');
+  if (!container) return;
+
+  const projects = getSavedProjects();
+  if (!projects.length) {
+    container.innerHTML = '<div class="empty-state">Brak zapisanych projektów</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  projects.forEach(proj => {
+    const card = document.createElement('div');
+    card.className = 'project-card';
+
+    const header = document.createElement('div');
+    header.className = 'project-card-header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.style.flex = '1';
+    titleWrap.style.minWidth = '0';
+
+    const title = document.createElement('div');
+    title.className = 'project-card-title';
+    title.textContent = proj.name || 'Bez nazwy';
+
+    const date = document.createElement('div');
+    date.className = 'project-card-date';
+    try {
+      const d = new Date(proj.savedAt);
+      date.textContent = d.toLocaleDateString('pl-PL', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    } catch(err) {
+      date.textContent = proj.savedAt || '';
+    }
+
+    titleWrap.append(title, date);
+    header.appendChild(titleWrap);
+
+    // Badges
+    const badges = document.createElement('div');
+    badges.className = 'project-card-badges';
+
+    const mCount = (proj.markers || []).length;
+    const cCount = (proj.connections || []).length;
+
+    const b1 = document.createElement('span');
+    b1.className = 'project-badge';
+    b1.textContent = `📍 ${mCount}`;
+    badges.appendChild(b1);
+
+    if (cCount > 0) {
+      const b2 = document.createElement('span');
+      b2.className = 'project-badge';
+      b2.textContent = `🔗 ${cCount}`;
+      badges.appendChild(b2);
+    }
+
+    if (proj.customCountryName || (proj.customCountry && proj.customCountry.name)) {
+      const b3 = document.createElement('span');
+      b3.className = 'project-badge';
+      b3.textContent = `🗺️ ${proj.customCountryName || proj.customCountry.name}`;
+      badges.appendChild(b3);
+    }
+
+    if (proj.showLands) {
+      const b4 = document.createElement('span');
+      b4.className = 'project-badge';
+      b4.textContent = `🌍 lądy`;
+      badges.appendChild(b4);
+    }
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'project-card-actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn btn-primary';
+    loadBtn.textContent = '✏️ Wczytaj';
+    loadBtn.title = 'Wczytaj ten projekt do edytora';
+    loadBtn.addEventListener('click', () => {
+      loadProjectData(proj, true);
+    });
+
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'btn btn-outline';
+    exportBtn.textContent = '📥 .json';
+    exportBtn.title = 'Pobierz ten projekt jako plik .json';
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const jsonStr = JSON.stringify(proj, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeName = (proj.name || 'mapa').toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/gi, '_').replace(/^_+|_+$/g, '');
+      a.download = `projekt_${safeName || 'mapa'}.json`;
+      a.href = url;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast('Pobrano plik projektu', 'success');
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-danger';
+    delBtn.style.flex = '0.4';
+    delBtn.textContent = '🗑️';
+    delBtn.title = 'Usuń projekt z pamięci';
+    delBtn.addEventListener('click', (e) => deleteSavedProject(proj.id, e));
+
+    actions.append(loadBtn, exportBtn, delBtn);
+
+    card.append(header, badges, actions);
+    container.appendChild(card);
+  });
+}
+
+function createNewProject() {
+  const hasContent = (state.markers && state.markers.length > 0) || state.customCountry || (state.highlightedCountries && state.highlightedCountries.length > 0);
+  if (hasContent) {
+    if (!confirm('Czy na pewno chcesz utworzyć nowy projekt? Niezapisane zmiany w bieżącej mapie zostaną utracone.')) {
+      return;
+    }
+  }
+
+  saveState();
+
+  // Reset highlights
+  if (state.highlightedCountries && state.highlightedCountries.length > 0) {
+    state.highlightedCountries.forEach(entry => removeHighlightLayer(entry.id));
+  }
+  state.highlightedCountries = [];
+  buildHighlightList();
+
+  // Reset custom country
+  state.customCountry = null;
+  state.customCountryName = '';
+  if (map && map.getLayer('custom-country-fill')) {
+    map.setLayoutProperty('custom-country-fill', 'visibility', 'none');
+    map.setLayoutProperty('custom-country-line', 'visibility', 'none');
+  }
+  const countryInput = document.getElementById('countrySearchInput');
+  if (countryInput) countryInput.value = '';
+
+  // Reset lands
+  state.showLands = false;
+  const toggleLandsBtn = document.getElementById('toggleLandsBtn');
+  if (toggleLandsBtn) {
+    toggleLandsBtn.textContent = 'Pokaż lądy';
+    toggleLandsBtn.classList.remove('active');
+  }
+  const envColorSelector = document.getElementById('envColorSelector');
+  if (envColorSelector) envColorSelector.style.display = 'none';
+  updateGlobalLandsLayer();
+
+  // Reset markers & connections
+  state.markers = [];
+  state.connections = [];
+  state.selectedId = null;
+
+  // Reset project name
+  state.currentProjectName = 'Moja mapa';
+  const nameInput = document.getElementById('projectNameInput');
+  if (nameInput) nameInput.value = '';
+
+  // Reset viewport
+  if (map) {
+    map.jumpTo({ center: [0, 20], zoom: 1.5, pitch: 0, bearing: 0 });
+  }
+
+  buildMarkersList();
+  updateConnDropdowns();
+  buildConnsList();
+  render();
+
+  toast('Rozpoczęto nowy projekt', 'success');
+}
+
+function handleProjectFileInput(file) {
+  if (!file) return;
+  if (!file.name.endsWith('.json')) {
+    toast('Wybierz plik z rozszerzeniem .json', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      loadProjectData(parsed, true);
+    } catch (err) {
+      console.error('Błąd parsowania pliku JSON:', err);
+      toast('Nie udało się odczytać pliku projektu (błąd formatu JSON)', 'error');
+    }
+  };
+  reader.onerror = () => {
+    toast('Błąd podczas odczytu pliku z dysku', 'error');
+  };
+  reader.readAsText(file);
+}
+
+// ── LISTENERY DLA PROJEKTÓW ───────────────────────────────────────────────────
+document.getElementById('saveProjectBrowserBtn')?.addEventListener('click', () => {
+  saveCurrentProjectToBrowser();
+});
+
+document.getElementById('exportProjectJsonBtn')?.addEventListener('click', () => {
+  exportCurrentProjectJson();
+});
+
+document.getElementById('newProjectBtn')?.addEventListener('click', createNewProject);
+
+document.getElementById('clearAllProjectsBtn')?.addEventListener('click', () => {
+  const projects = getSavedProjects();
+  if (!projects.length) return;
+  if (confirm(`Czy na pewno chcesz usunąć wszystkie (${projects.length}) zapisane projekty z pamięci przeglądarki?`)) {
+    saveProjectsList([]);
+    renderSavedProjectsList();
+    toast('Wyczyszczono wszystkie zapisane projekty', 'success');
+  }
+});
+
+// Dropzone & File Input
+const projectDropzone = document.getElementById('projectDropzone');
+const projectFileInput = document.getElementById('projectFileInput');
+
+if (projectDropzone && projectFileInput) {
+  projectDropzone.addEventListener('click', () => {
+    projectFileInput.value = '';
+    projectFileInput.click();
+  });
+
+  projectFileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleProjectFileInput(e.target.files[0]);
+    }
+  });
+
+  projectDropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    projectDropzone.classList.add('dragover');
+  });
+
+  projectDropzone.addEventListener('dragleave', () => {
+    projectDropzone.classList.remove('dragover');
+  });
+
+  projectDropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    projectDropzone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleProjectFileInput(e.dataTransfer.files[0]);
+    }
+  });
+}
+
+// Global Drag and drop file support
+window.addEventListener('dragover', (e) => {
+  if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+    e.preventDefault();
+  }
+});
+
+window.addEventListener('drop', (e) => {
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    const file = e.dataTransfer.files[0];
+    if (file.name.endsWith('.json')) {
+      e.preventDefault();
+      handleProjectFileInput(file);
+    }
+  }
+});
+
+// Header quick buttons
+document.getElementById('headerProjectsBtn')?.addEventListener('click', () => {
+  const projTabBtn = document.querySelector('.tab-btn[data-tab="tab-projects"]');
+  if (projTabBtn) projTabBtn.click();
+});
+
+document.getElementById('headerSaveBtn')?.addEventListener('click', () => {
+  saveCurrentProjectToBrowser();
+});
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 updateLabelPreview();
 buildMarkersList();
 updateConnDropdowns();
 buildConnsList();
+renderSavedProjectsList();
 initImages();
 </script>
 <!-- ── EXPORT MODAL ─────────────────────────────────────────────────────── -->
